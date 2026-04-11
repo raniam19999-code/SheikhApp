@@ -1,0 +1,16 @@
+{
+  "name": "مدينة أولاد الشيخ للبيع بالجملة",
+  "short_name": "أولاد الشيخ",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1B4332",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "img/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
