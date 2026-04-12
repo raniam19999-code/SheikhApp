@@ -2,6 +2,13 @@
    ui-utils.js: التنبيهات، التبويبات، والوظائف العامة
 ======================================================== */
 
+// دالة أمان لتشغيل الأيقونات للتأكد من وجود المكتبة
+function safeCreateIcons() {
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
 export function showTab(id) {
   if (id === "account" && (!window.currentUser || window.currentUser.isAnonymous)) {
     window.showLoginModal();
@@ -27,8 +34,11 @@ export function showTab(id) {
 
   if (id === "cart") window.renderCart();
   window.scrollTo({ top: 0, behavior: "smooth" });
-  if (window.lucide) lucide.createIcons();
+  safeCreateIcons();
 }
+
+// ربط الدالة بالنافذة لتشغيلها من الـ HTML
+window.showTab = showTab;
 
 export function showNotification(m) {
   const existing = document.getElementById("custom-toast");
@@ -38,7 +48,7 @@ export function showNotification(m) {
   d.className = "fixed top-5 md:top-8 left-1/2 -translate-x-1/2 bg-[#1B4332] backdrop-blur-md text-white px-6 py-4 rounded-2xl text-sm font-bold z-[2000] shadow-2xl flex items-center gap-3 modal-enter border border-emerald-500/50 max-w-[90vw]";
   d.innerHTML = `<i data-lucide="stars" class="w-5 h-5 text-amber-400 animate-pulse"></i> ${m}`;
   document.body.appendChild(d);
-  lucide.createIcons();
+  safeCreateIcons();
   setTimeout(() => {
     d.style.animation = "fadeInUp 0.3s ease-in reverse forwards";
     setTimeout(() => d.remove(), 300);
@@ -56,7 +66,7 @@ export function showToast(message, type = "success", duration = 4000, onClick = 
   toast.innerHTML = `<i data-lucide="${activeIcon}" class="w-5 h-5 flex-shrink-0 mt-0.5 animate-bounce"></i><div class="flex-1"><p class="font-bold text-sm leading-tight">${message}</p></div><button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white transition-colors ml-2"><i data-lucide="x" class="w-4 h-4"></i></button>`;
   if (onClick) toast.onclick = onClick;
   container.appendChild(toast);
-  lucide.createIcons();
+  safeCreateIcons();
   setTimeout(() => { toast.style.opacity = "0"; toast.style.transform = "translateY(20px)"; setTimeout(() => toast.remove(), 300); }, duration);
 }
 
@@ -115,6 +125,8 @@ export function clearAllNotifications() {
   updateNotificationPanel();
   updateNotificationBadge();
 }
+window.clearAllNotifications = clearAllNotifications;
+window.toggleNotificationPanel = toggleNotificationPanel;
 
 export function getLocationGPS() {
   if (navigator.geolocation) {
@@ -132,6 +144,7 @@ export function getLocationGPS() {
     }, () => { btn.innerHTML = ogHtml; alert("فشل في تحديد الموقع."); }, { enableHighAccuracy: true });
   } else { alert("متصفحك لا يدعم تحديد الموقع."); }
 }
+window.getLocationGPS = getLocationGPS;
 
 export function triggerPWAInstall() {
   if (!window.deferredPrompt) return;
@@ -141,6 +154,7 @@ export function triggerPWAInstall() {
     window.deferredPrompt = null;
   });
 }
+window.triggerPWAInstall = triggerPWAInstall;
 
 export function navigateBack() {
   if (window.activeSubCategoryName !== null) {

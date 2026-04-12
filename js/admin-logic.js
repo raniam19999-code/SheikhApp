@@ -65,6 +65,7 @@ export function showAdminSubTab(tab) {
   
   if (window.lucide) lucide.createIcons();
 }
+window.showAdminSubTab = showAdminSubTab;
 
 // 1. استيراد ومعالجة ملف الإكسل (Bulk Upload)
 export async function handleBulkFileUpload(event) {
@@ -84,6 +85,7 @@ export async function handleBulkFileUpload(event) {
     await processBulkProducts(rows);
   }
 }
+window.handleBulkFileUpload = handleBulkFileUpload;
 
 async function processBulkProducts(rows) {
   let batch = window.firestoreUtils.writeBatch(window.db);
@@ -241,6 +243,7 @@ export function openBulkPriceUpdateModal() {
     updateCategorySelects();
   }
 }
+window.openBulkPriceUpdateModal = openBulkPriceUpdateModal;
 
 export function closeBulkPriceUpdateModal() {
   const modal = document.getElementById('bulk-price-update-modal');
@@ -249,6 +252,7 @@ export function closeBulkPriceUpdateModal() {
     modal.classList.remove('flex');
   }
 }
+window.closeBulkPriceUpdateModal = closeBulkPriceUpdateModal;
 
 export function updateCategorySelects() {
   const selects = ['p-cat', 'bulk-price-cat'];

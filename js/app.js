@@ -97,7 +97,6 @@ window.editingType = null;
 window.unsubs = {};
 window.notifications = [];
 window.modalAuthMode = "login";
-let appStarted = false;
 let loadAttempts = 0; // تعريف المتغير المفقود لضمان عمل الـ Interval
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -108,9 +107,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 async function startApp() {
-  if (appStarted) return;
-  appStarted = true;
-  lucide.createIcons();
+  if (window.lucide) window.lucide.createIcons();
   if ('serviceWorker' in navigator) {
     try { await navigator.serviceWorker.register('./service-worker.js'); } catch (e) {}
   }
@@ -118,6 +115,11 @@ async function startApp() {
   await Auth.initAuth();
   window.currentParentId = null;
   window.activeSubCategoryName = null;
+  
+  // إخفاء واجهة التحميل بمجرد بدء التطبيق
+  const grid = document.getElementById("products-grid");
+  if (grid && window.products.length === 0) {
+  }
 
   // منع المتصفح من ملء خانة البحث تلقائياً ببيانات الحساب المحفوظة
   setTimeout(() => {
@@ -148,17 +150,15 @@ async function initializeDefaultCategories() {
       for (const category of defaultBranches) { await window.firestoreUtils.addDoc(categoriesRef, category); }
       await window.firestoreUtils.setDoc(window.firestoreUtils.doc(categoriesRef, "init_check"), { initialized: true });
     }
-  } catch (error) {
-    console.error("Error initializing categories:", error);
-  }
+  } catch (error) {}
 }
 
 function listenToProducts() {
   const q = window.firestoreUtils.query(window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products"));
   return window.firestoreUtils.onSnapshot(q, (snap) => {
     window.products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // تحديث الواجهة حسب الصفحة المفتوحة
+    console.log("Products Loaded:", window.products.length); // سطر للتأكد من وصول البيانات
+
     if (typeof window.renderProducts === 'function') window.renderProducts();
     
     // تحديث واجهة المخزن إذا كان المدير يشاهدها
