@@ -97,6 +97,7 @@ window.editingType = null;
 window.unsubs = {};
 window.notifications = [];
 window.modalAuthMode = "login";
+let appStarted = false;
 let loadAttempts = 0; // تعريف المتغير المفقود لضمان عمل الـ Interval
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -107,6 +108,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 async function startApp() {
+  if (appStarted) return;
+  appStarted = true;
   lucide.createIcons();
   if ('serviceWorker' in navigator) {
     try { await navigator.serviceWorker.register('./service-worker.js'); } catch (e) {}
@@ -145,7 +148,9 @@ async function initializeDefaultCategories() {
       for (const category of defaultBranches) { await window.firestoreUtils.addDoc(categoriesRef, category); }
       await window.firestoreUtils.setDoc(window.firestoreUtils.doc(categoriesRef, "init_check"), { initialized: true });
     }
-  } catch (error) {}
+  } catch (error) {
+    console.error("Error initializing categories:", error);
+  }
 }
 
 function listenToProducts() {
