@@ -21,7 +21,11 @@ export function updateCartBadge() {
 
 export async function addToCart(id, name, price, unit) {
   const product = window.products.find(p => p.id === id);
-  if (product && product.status === 'out_of_stock') {
+  if (!product) {
+      return window.showToast("خطأ: المنتج غير موجود", "error");
+  }
+  
+  if (product.status === 'out_of_stock') {
       return window.showToast("عذراً، المنتج غير متوفر حالياً", "error");
   }
 
@@ -61,7 +65,7 @@ export function renderCart() {
       </div>
     </div>`;
   }).join("");
-  document.getElementById("total").innerText = total;
+  document.getElementById("total").innerText = total.toFixed(2);
   lucide.createIcons();
 }
 

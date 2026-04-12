@@ -93,6 +93,7 @@ async function processBulkProducts(rows) {
   let created = 0;
 
   for (const row of rows) {
+    try {
     // تنظيف رؤوس الأعمدة من المسافات المخفية
     const r = {}; Object.keys(row).forEach(k => r[k.trim()] = row[k]);
 
@@ -137,6 +138,10 @@ async function processBulkProducts(rows) {
       const newDocRef = window.firestoreUtils.doc(productsRef);
       batch.set(newDocRef, productData);
       created++;
+    }
+    } catch (err) {
+      console.error("Error processing row:", row, err);
+      continue; // تخطي السطر الذي يحتوي على خطأ والاستمرار في الباقي
     }
   }
 
@@ -309,14 +314,16 @@ export async function saveBulkPriceUpdates() {
   if (rawData) {
     const lines = rawData.split('\n');
     lines.forEach(line => {
-      // تحسين: دعم التقسيم بالتاب (النسخ من إكسل)، الفاصلة، أو الخط الرأسي
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+
       const parts = line.split(/[\t|,]|\s{2,}/).map(s => s.trim()).filter(Boolean);
       if (parts.length < 2) return;
 
       const identifier = normalizeArabic(parts[0]);
-      // تنظيف السعر من الفواصل قبل التحويل في حالة اللصق اليدوي
-      const priceVal = parseFloat(String(parts[1]).replace(/,/g, ''));
-      if (isNaN(priceVal)) return;
+      const rawPrice = String(parts[1]).replace(/[^0-9.]/g, ''); // تنظيف السعر من أي رموز غير رقمية
+      const priceVal = parseFloat(rawPrice);
+      if (isNaN(priceVal) || priceVal <= 0) return; // تجاهل الأسعار الصفرية أو الخاطئة
 
       // البحث عن المنتج بالكود أو الاسم
       const p = products.find(x => 
@@ -382,5 +389,10 @@ window.exportShortageReport = function() {
 window.updateProductQty = async (id) => {
   const newQty = Number(document.getElementById(`inline-qty-${id}`).value);
   await window.firestoreUtils.updateDoc(window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", id), { quantity: newQty });
+  
+  // تحديث البيانات محلياً لضمان مزامنة الواجهة فوراً
+  const pIndex = window.products.findIndex(p => p.id === id);
+  if (pIndex !== -1) window.products[pIndex].quantity = newQty;
+
   window.showNotification("تم تحديث الكمية");
 };
