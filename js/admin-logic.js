@@ -86,7 +86,7 @@ export async function handleBulkFileUpload(event) {
 }
 
 async function processBulkProducts(rows) {
-  const batch = window.firestoreUtils.writeBatch(window.db);
+  let batch = window.firestoreUtils.writeBatch(window.db);
   const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
   
   let updated = 0;
@@ -139,6 +139,13 @@ async function processBulkProducts(rows) {
       batch.set(newDocRef, productData);
       created++;
     }
+
+    // Firestore batch limit is 500 operations
+    if ((updated + created) % 500 === 0) {
+      await batch.commit();
+      batch = window.firestoreUtils.writeBatch(window.db);
+    }
+
     } catch (err) {
       console.error("Error processing row:", row, err);
       continue; // تخطي السطر الذي يحتوي على خطأ والاستمرار في الباقي
@@ -305,7 +312,7 @@ export async function saveBulkPriceUpdates() {
     if (cat) targetCategoryName = normalizeArabic(cat.name);
   }
 
-  const batch = window.firestoreUtils.writeBatch(window.db);
+  let batch = window.firestoreUtils.writeBatch(window.db);
   const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
   let updateCount = 0;
   let notFoundCount = 0;
@@ -343,6 +350,11 @@ export async function saveBulkPriceUpdates() {
           "prices.piece": updatedPrice // تحديث سعر القطعة في النظام الجديد أيضاً
         });
         updateCount++;
+
+        if (updateCount % 500 === 0) {
+          await batch.commit();
+          batch = window.firestoreUtils.writeBatch(window.db);
+        }
       } else {
         notFoundCount++;
       }
