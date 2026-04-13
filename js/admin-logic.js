@@ -907,7 +907,6 @@ window.exportShortageReport = function () {
   XLSX.writeFile(wb, `نواقص_أولاد_الشيخ_${date}.xlsx`);
 };
 
-ى
 window.updateProductQty = async (id) => {
   const newQty = Number(document.getElementById(`inline-qty-${id}`).value);
   await window.firestoreUtils.updateDoc(

@@ -262,6 +262,13 @@ window.renderProducts = function (productsToRender = window.products) {
 
 async function startApp() {
   if (window.lucide) window.lucide.createIcons();
+
+  // بدء جلب البيانات ومراقبة حالة المستخدم فوراً
+  listenToCategories();
+  listenToProducts();
+  Auth.initAuth();
+  Auth.listenToAuth();
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
       .register("./service-worker.js?v=1.1")
