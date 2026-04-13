@@ -1,0 +1,168 @@
+:root {
+  --page-bg: #f8fafc;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --surface: #ffffff;
+  --surface-soft: #f1f5f9;
+  --border: #e2e8f0;
+  --primary: #1B4332;
+  --primary-strong: #0f291e;
+  --primary-soft: #ecfdf5;
+  --accent: #f59e0b;
+  --accent-strong: #d97706;
+  --shadow-base: rgba(27, 67, 50, 0.12);
+}
+
+body {
+  font-family: "Cairo", sans-serif;
+  background-color: var(--page-bg);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+.primary-green {
+  background: linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%);
+}
+.primary-green-hover {
+  background-color: #0f291e;
+}
+.text-primary {
+  color: var(--primary);
+}
+.bg-accent {
+  background-color: var(--accent);
+}
+.card-shadow {
+  box-shadow: 0 18px 60px var(--shadow-base);
+}
+
+/* Hide Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+.snap-item {
+  scroll-snap-align: start;
+}
+
+.tab-content {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.tab-content.active {
+  display: block;
+  opacity: 1;
+  animation: fadeIn 0.4s ease forwards;
+}
+.admin-only {
+  display: none;
+}
+body.is-admin .admin-only {
+  display: block;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes popIn {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.modal-enter {
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-delay-1 {
+  animation-delay: 0.05s;
+}
+.stagger-delay-2 {
+  animation-delay: 0.1s;
+}
+.stagger-delay-3 {
+  animation-delay: 0.15s;
+}
+
+.credit-card {
+  background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
+  color: white;
+}
+
+/* Notification Panel Scrollbar */
+#notifications-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#notifications-list::-webkit-scrollbar-track {
+  background: var(--page-bg);
+}
+
+#notifications-list::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+#notifications-list::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-strong);
+}
+
+/* Smooth animations for notification panel */
+#notification-panel {
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#notification-panel.hidden {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
