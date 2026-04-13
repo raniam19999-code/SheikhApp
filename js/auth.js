@@ -1,3 +1,4 @@
+
 /* ========================================================
    auth.js: تسجيل الدخول وإدارة الصلاحيات
 ======================================================== */
@@ -20,17 +21,20 @@ export async function initAuth() {
       __initial_auth_token,
     );
   } else {
-    try {
-      await window.authUtils.signInAnonymously(window.auth);
-    } catch (e) {
-      if (e.code === "auth/admin-restricted-operation") {
-        window.showToast(
-          "يجب تفعيل خاصية (Anonymous Auth) من منصة Firebase ليعمل التطبيق بشكل صحيح.",
-          "error",
-          8000,
-        );
+    // Only attempt anonymous sign-in if no user is currently restored from persistence
+    if (!window.auth.currentUser) {
+      try {
+        await window.authUtils.signInAnonymously(window.auth);
+      } catch (e) {
+        if (e.code === "auth/admin-restricted-operation") {
+          window.showToast(
+            "خدمة تسجيل الدخول معطلة من لوحة التحكم (Firebase Console). يرجى مراجعة الإعدادات.",
+            "error",
+            8000,
+          );
+        }
+        console.warn("Auth Info:", e.code, e.message);
       }
-      console.warn("Auth Info:", e.code, e.message);
     }
   }
 }

@@ -156,8 +156,8 @@
 
 console.log("chatbot.js loaded.");
 
-const HODA_BOT_IMAGE = "img/download (1).png";
-const YOUSSEF_BOT_IMAGE = "img/CALLB.png";
+const HODA_BOT_IMAGE = "img/CALLB.png"; // هدى (صورة البنت)
+const YOUSSEF_BOT_IMAGE = "img/download (1).png"; // يوسف (صورة الولد)
 
 // دالة تحديد الشخصية (هدى أو يوسف)
 window.getBotPersona = function () {
@@ -261,7 +261,7 @@ function getSmartResponse(msg) {
     msg.includes(p.name.toLowerCase()),
   );
   if (matchedProduct) {
-    return `بخصوص "${matchedProduct.name}"، هو متوفر حالياً بسعر ${matchedProduct.price} ج.م للـ ${matchedProduct.unit || "قطعة"}. هل تود إضافته للسلة الآن؟ 🛒`;
+    return `بخصوص "${matchedProduct.name}"، هو متوفر حالياً بسعر ${matchedProduct.price} ج.م للـ ${matchedProduct.unit || "كيس"}. هل تود إضافته للسلة الآن؟ 🛒`;
   }
 
   // 3. البحث عن الأقسام
@@ -431,7 +431,7 @@ window.saveBotResponse = async function() {
             createdAt: window.firestoreUtils.serverTimestamp()
         });
         
-        window.showToast("تم الحفظ بنجاح! البوت الآن أذكى 🧠", "success");
+        window.showToast("تم الحفظ بنجاح! البوت الآن أذكى ", "success");
         keywordsInput.value = "";
         responseInput.value = "";
     } catch(e) {

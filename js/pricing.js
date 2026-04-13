@@ -1,3 +1,4 @@
+
 /**
  * pricing.js — نظام التسعير المزدوج (جملة / قطعة)
  * يدير خيار السعر بالجملة وبالقطعة لكل منتج في الموقع
@@ -12,12 +13,12 @@
 /* ============================================================
    2. حساب السعر الفعلي للمنتج بحسب الوضع الحالي
    ============================================================ */
-window.getEffectivePrice = function (product, unitType = 'piece') {
+window.getEffectivePrice = function (product, unitType = 'bag') {
   if (!product) return 0;
   const prices = product.prices || {};
   // توافق مع النظام القديم إذا لم توجد خريطة أسعار
   if (!product.prices) {
-      if (unitType === 'retail' || unitType === 'piece') return Number(product.retailPrice || product.price || 0);
+      if (unitType === 'retail' || unitType === 'bag') return Number(product.retailPrice || product.price || 0);
       return Number(product.price || 0);
   }
   return Number(prices[unitType]) || 0;
@@ -27,21 +28,25 @@ window.getEffectivePrice = function (product, unitType = 'piece') {
    3. عرض بطاقة السعر المزدوج داخل كارت المنتج
    ============================================================ */
 window.renderPriceBlock = function (product) {
-  const prices = product.prices || { piece: product.price || 0 };
-  const units = product.availableUnits || { piece: true };
+  const prices = product.prices || { bag: product.price || 0 };
+  const units = product.availableUnits || { bag: true };
   
   const unitLabels = {
-    piece: { label: 'قطعة', icon: 'package' },
+    bag: { label: 'كيس & شنطة', icon: 'package' },
+    piece: { label: 'قطعة', icon: 'hash' },
     box: { label: 'علبة', icon: 'archive' },
     carton: { label: 'كرتونة', icon: 'layers' },
-    bundle: { label: 'ربطة', icon: 'grip-vertical' }
+    shrink: { label: 'شرنك', icon: 'grid' },
+    bundle: { label: 'رابطة (Bundle)', icon: 'grip-vertical' },
+    bucket: { label: 'جردل', icon: 'shopping-basket' },
+    tin: { label: 'صفيحة', icon: 'box' }
   };
 
   return `
     <div class="price-block flex flex-wrap gap-1 mt-2" data-product-id="${product.id}">
       ${Object.keys(unitLabels).map(unitKey => {
         if (!units[unitKey] || !prices[unitKey]) return '';
-        const isActive = unitKey === 'piece'; // افتراضياً القطعة هي النشطة
+        const isActive = unitKey === 'bag'; // افتراضياً الكيس هو النشط
         return `
           <button
             class="unit-selector-btn ${isActive ? 'active-unit' : ''} border px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
@@ -79,11 +84,22 @@ window.updateProductUnitSelection = function(productId, unitKey, price, event) {
    5. حقول إضافة / تعديل المنتج
    ============================================================ */
 window.getPricingFieldsHTML = function (product) {
-  const wholesale = product ? (product.price || '') : '';
-  const retail    = product ? (product.retailPrice || '') : '';
+  const pPrices = product?.prices || {};
+  const prices = {
+    bag: pPrices.bag || '',
+    piece: pPrices.piece || product?.price || '',
+    box: pPrices.box || '',
+    carton: pPrices.carton || '',
+    shrink: pPrices.shrink || '',
+    bundle: pPrices.bundle || '',
+    bucket: pPrices.bucket || '',
+    tin: pPrices.tin || ''
+  };
+
   const sku       = product ? (product.sku || '') : '';
   const qty       = product ? (product.quantity || 0) : 0;
   const min       = product ? (product.minThreshold || 5) : 5;
+
   return `
     <div class="grid grid-cols-1 gap-3 mb-3">
       <div>
@@ -92,7 +108,7 @@ window.getPricingFieldsHTML = function (product) {
                class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-500 font-mono text-xs" />
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-2 gap-2 mb-3">
       <div>
         <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">الكمية المتوفرة</label>
         <input type="number" id="p-qty" value="${qty}" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-500 font-semibold" />
@@ -101,50 +117,37 @@ window.getPricingFieldsHTML = function (product) {
         <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">حد الطلب (تنبيه نقص)</label>
         <input type="number" id="p-min" value="${min}" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-red-400 font-semibold" />
       </div>
-      <div class="mt-2">
-        <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">
-          سعر الجملة (ج.م) <span class="text-red-400">*</span>
-        </label>
-        <div class="relative">
-          <span class="absolute right-3 top-1/2 -translate-y-1/2">
-            <i data-lucide="package" class="w-4 h-4 text-emerald-500"></i>
-          </span>
-          <input
-            type="number"
-            id="p-price"
-            placeholder="مثال: 50"
-            step="0.01"
-            value="${wholesale}"
-            class="w-full p-4 pr-9 bg-slate-50 rounded-2xl outline-none border border-transparent
-                   focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 font-semibold text-slate-800"
-            dir="ltr"
-          />
-        </div>
-      </div>
-      <div>
-        <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">
-          سعر القطعة (ج.م)
-          <span class="text-slate-400 font-normal">(اختياري)</span>
-        </label>
-        <div class="relative">
-          <span class="absolute right-3 top-1/2 -translate-y-1/2">
-            <i data-lucide="shopping-bag" class="w-4 h-4 text-blue-400"></i>
-          </span>
-          <input
-            type="number"
-            id="p-retail-price"
-            placeholder="مثال: 70"
-            step="0.01"
-            value="${retail}"
-            class="w-full p-4 pr-9 bg-slate-50 rounded-2xl outline-none border border-transparent
-                   focus:border-blue-400 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800"
-            dir="ltr"
-          />
-        </div>
+    </div>
+
+    <div class="bg-slate-50 p-4 rounded-[2rem] border border-slate-100 mb-3">
+      <p class="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-wider">أسعار الوحدات (ج.م)</p>
+      <div class="grid grid-cols-2 gap-3">
+        ${[
+          { id: 'bag', label: 'كيس & شنطة', icon: 'package' },
+          { id: 'piece', label: 'قطعة', icon: 'hash' },
+          { id: 'box', label: 'علبة', icon: 'archive' },
+          { id: 'carton', label: 'كرتونة', icon: 'layers' },
+          { id: 'shrink', label: 'شرنك', icon: 'grid' },
+          { id: 'bundle', label: 'رابطة (Bundle)', icon: 'grip-vertical' },
+          { id: 'bucket', label: 'جردل', icon: 'shopping-basket' },
+          { id: 'tin', label: 'صفيحة', icon: 'box' }
+        ].map(u => `
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 mb-1 block">${u.label}</label>
+            <div class="relative">
+              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300">
+                <i data-lucide="${u.icon}" class="w-3.5 h-3.5"></i>
+              </span>
+              <input type="number" id="p-price-${u.id}" value="${prices[u.id]}" placeholder="0.00" step="0.01" 
+                     class="w-full p-2.5 pr-8 bg-white rounded-xl border border-slate-200 outline-none focus:border-emerald-500 text-xs font-bold" dir="ltr" />
+            </div>
+          </div>
+        `).join('')}
       </div>
     </div>
+    
     <p class="text-[10px] text-slate-400 -mt-1">
-      💡 أدخل سعر الجملة دائماً. أدخل سعر القطعة إذا كنت تبيع بالقطعة بسعر مختلف.
+      💡 أدخل السعر أمام الوحدة التي تود تفعيلها لهذا المنتج فقط.
     </p>`;
 };
 
@@ -152,15 +155,29 @@ window.getPricingFieldsHTML = function (product) {
    6. قراءة سعر الجملة والقطعة من نموذج إضافة/تعديل المنتج
    ============================================================ */
 window.getPricingValues = function () {
-  const wholesale = Number(document.getElementById('p-price')?.value || 0);
-  const retail    = Number(document.getElementById('p-retail-price')?.value || 0);
+  const prices = {
+    bag: Number(document.getElementById('p-price-bag')?.value || 0),
+    piece: Number(document.getElementById('p-price-piece')?.value || 0),
+    box: Number(document.getElementById('p-price-box')?.value || 0),
+    carton: Number(document.getElementById('p-price-carton')?.value || 0),
+    shrink: Number(document.getElementById('p-price-shrink')?.value || 0),
+    bundle: Number(document.getElementById('p-price-bundle')?.value || 0),
+    bucket: Number(document.getElementById('p-price-bucket')?.value || 0),
+    tin: Number(document.getElementById('p-price-tin')?.value || 0),
+  };
+
   const sku       = document.getElementById('p-sku')?.value || '';
   const quantity  = Number(document.getElementById('p-qty')?.value || 0);
   const minThreshold = Number(document.getElementById('p-min')?.value || 5);
   
   return { 
-    price: wholesale, 
-    retailPrice: retail > 0 ? retail : null,
+    price: prices.bag || Object.values(prices).find(v => v > 0) || 0, 
+    prices,
+    availableUnits: {
+      bag: !!prices.bag, piece: !!prices.piece, box: !!prices.box, 
+      carton: !!prices.carton, shrink: !!prices.shrink, bundle: !!prices.bundle,
+      bucket: !!prices.bucket, tin: !!prices.tin
+    },
     sku,
     quantity,
     minThreshold,
@@ -195,7 +212,7 @@ window.injectPricingFields = function (product) {
       margin-top: 4px;
     }
 
-    /* سعر واحد فقط (بدون قطعة) */
+    /* سعر واحد فقط (بدون كيس) */
     .price-tag.wholesale-only {
       display: inline-flex;
       align-items: center;

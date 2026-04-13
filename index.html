@@ -132,26 +132,6 @@
         transform: scale(1.15) !important;
       }
     </style>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            .register("./service-worker.js?v=1.1")
-            .then((reg) => {
-              console.log("Service Worker registered.", reg.scope);
-              // إجبار التحديث فوراً عند وجود نسخة جديدة
-              reg.onupdatefound = () => {
-                const installingWorker = reg.installing;
-                installingWorker.onstatechange = () => {
-                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    window.location.reload();
-                  }
-                };
-              };
-            });
-        });
-      }
-    </script>
 
     <!-- Structured Data (JSON-LD) for SEO -->
     <script type="application/ld+json">
@@ -1204,12 +1184,13 @@
             id="p-unit"
             class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 font-bold text-sm text-slate-700"
           >
-            <option value="كيلو">كيلو</option>
+            <option value="كيس">كيس & شنطة</option>
             <option value="قطعة">قطعة</option>
             <option value="علبة">علبة</option>
-            <option value="كرتونه">كرتونه</option>
-            <option value="شيكر">شيكر</option>
+            <option value="كرتونة">كرتونة</option>
             <option value="جردل">جردل</option>
+            <option value="صفيحة">صفيحة</option>
+            <option value="شرنك">شرنك</option>
             <option value="رابطة">رابطة (Bundle)</option>
           </select>
         </div>
@@ -1313,12 +1294,14 @@
               id="bulk-unit"
               class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-300 focus:ring-4 focus:ring-blue-50 font-bold text-sm text-slate-700"
             >
-              <option value="كيلو">كيلو</option>
+              <option value="كيس">كيس & شنطة</option>
               <option value="قطعة">قطعة</option>
               <option value="علبة">علبة</option>
+              <option value="كرتونة">كرتونة</option>
               <option value="جردل">جردل</option>
-              <option value="كرتونه">كرتونه</option>
-              <option value="شيكر">شيكر</option>
+              <option value="صفيحة">صفيحة</option>
+              <option value="شرنك">شرنك</option>
+              <option value="رابطة">رابطة (Bundle)</option>
             </select>
           </div>
           <div class="md:col-span-2">

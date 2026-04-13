@@ -61,13 +61,29 @@ export function openProductModal(product = null) {
 
   updateCategorySelects();
 
+  // تحديث قائمة الوحدات في المودال لتطابق المسميات الجديدة
+  const unitSelect = document.getElementById("p-unit");
+  if (unitSelect) {
+    const units = [
+      { val: "كيس", label: "كيس & شنطة" },
+      { val: "قطعة", label: "قطعة" },
+      { val: "علبة", label: "علبة" },
+      { val: "كرتونة", label: "كرتونة" },
+      { val: "جردل", label: "جردل" },
+      { val: "صفيحة", label: "صفيحة" },
+      { id: "شرنك", label: "شرنك" },
+      { id: "رابطة", label: "رابطة (Bundle)" }
+    ];
+    unitSelect.innerHTML = units.map(u => `<option value="${u.val || u.id}">${u.label}</option>`).join("");
+  }
+
   document.getElementById("p-name").value = product ? product.name : "";
   document.getElementById("p-cat").value = product
     ? product.categoryId || ""
     : "";
   document.getElementById("p-unit").value = product
-    ? product.unitMeasurement || "قطعة"
-    : "قطعة";
+    ? product.unitMeasurement || "كيس"
+    : "كيس";
   document.getElementById("p-quantities").value = product
     ? product.availableQuantities || ""
     : "";
@@ -443,7 +459,7 @@ async function processBulkProducts(rows) {
       if (!name) continue;
 
       const wholesalePrice = parseExcelNumber(findValByParts(r, ["جملة", "Wholesale", "سعر"]));
-      const bundlePrice = parseExcelNumber(findValByParts(r, ["ربطة", "Bundle", "سعر الربطة"]));
+      const bundlePrice = parseExcelNumber(findValByParts(r, ["شرنك", "Bundle", "سعر الشرنك"]));
       const cartonPrice = parseExcelNumber(findValByParts(r, ["كرتونة", "Carton", "سعر الكرتونة"]));
 
       const normName = normalizeArabic(name);
@@ -456,7 +472,7 @@ async function processBulkProducts(rows) {
       );
 
       const genericPrice = parseExcelNumber(r.Price || r["السعر"] || r["سعر"] || r["سعر البيع"] || 0);
-      const piecePrice = parseExcelNumber(r["سعر القطعة"] || r["سعر قطعة"] || 0) || genericPrice;
+      const piecePrice = parseExcelNumber(r["سعر الكيس"] || r["سعر كيس"] || 0) || genericPrice;
       const totalStock = parseExcelNumber(r.Stock || r["المخزون"] || r["مخزون"] || r.Quantity || r["الكمية"] || r["الكميه"] || 0);
 
       const productData = {
@@ -464,16 +480,24 @@ async function processBulkProducts(rows) {
         sku: sku,
         price: piecePrice,
         prices: {
-          piece: piecePrice,
+          bag: piecePrice,
+          tin: parseExcelNumber(r[" الكيس سعر "] || r["سعر الكيس"] || 0),
           box: parseExcelNumber(r["سعر العلبة"] || r["سعر علبة"] || 0),
           carton: parseExcelNumber(r["سعر الكرتونة"] || r["سعر كرتونة"] || 0),
-          bundle: parseExcelNumber(r["سعر الربطة"] || r["سعر ربطة"] || 0),
+          shrink: parseExcelNumber(r["سعر الشرنك"] || r["سعر شرنك"] || 0),
+          bucket: parseExcelNumber(r["سعر الجردل"] || r["سعر جردل"] || 0),
+          tin: parseExcelNumber(r["سعر الصفيحة"] || r["سعر صفيحة"] || 0),
+          
+          
         },
         availableUnits: {
-          piece: !!piecePrice,
+          bag: !!piecePrice,
+          tin: parseExcelNumber(r[" الكيس سعر "] || r["سعر الكيس"] || 0),
           box: !!(r["سعر العلبة"] || r["سعر علبة"]),
           carton: !!(r["سعر الكرتونة"] || r["سعر كرتونة"]),
-          bundle: !!(r["سعر الربطة"] || r["سعر ربطة"]),
+          shrink: !!(r["سعر الشرنك"] || r["سعر شرنك"]),
+          bucket: !!(r["سعر الجردل"] || r["سعر جردل"]),
+          tin: !!(r["سعر الصفيحة"] || r["سعر صفيحة"]),
         },
         quantity: totalStock,
         unitMeasurement: String(r.Unit || r["التعبئة"] || r["حجم"] || r["وزن"] || r["كمية الوحدة"] || "").trim(),
@@ -663,8 +687,8 @@ export function renderInventoryAudit() {
         </td>
         <td class="p-4">
           <div class="flex flex-col gap-1">
-            <span class="text-[10px] font-bold text-emerald-700">ق: ${p.prices?.piece || 0} ج.م</span>
-            <span class="text-[10px] font-bold text-blue-700">ك: ${p.prices?.carton || 0} ج.م</span>
+            <span class="text-[10px] font-bold text-emerald-700">كيس: ${p.prices?.bag || 0} ج.م</span>
+            <span class="text-[10px] font-bold text-blue-700">كرتونة: ${p.prices?.carton || 0} ج.م</span>
           </div>
         </td>
         <td class="p-4 font-mono font-black text-sm">${qty}</td>
@@ -828,8 +852,8 @@ export async function saveBulkPriceUpdates() {
         const updatedPrice = Number(finalPrice.toFixed(2));
 
         batch.update(window.firestoreUtils.doc(productsRef, p.id), {
-          price: updatedPrice,
-          "prices.piece": updatedPrice, // تحديث سعر القطعة في النظام الجديد أيضاً
+          price: Number(updatedPrice.toFixed(2)),
+          "prices.bag": Number(updatedPrice.toFixed(2)), // تحديث سعر الكيس في النظام الجديد أيضاً
         });
         updateCount++;
 
@@ -883,6 +907,7 @@ window.exportShortageReport = function () {
   XLSX.writeFile(wb, `نواقص_أولاد_الشيخ_${date}.xlsx`);
 };
 
+ى
 window.updateProductQty = async (id) => {
   const newQty = Number(document.getElementById(`inline-qty-${id}`).value);
   await window.firestoreUtils.updateDoc(

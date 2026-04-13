@@ -35,10 +35,11 @@ export async function addToCart(id, name, price, unit) {
     const cartRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "users", window.currentUser.uid, "cartItems");
     await window.firestoreUtils.addDoc(cartRef, { 
         productId: id, productName: `${name} (${unit})`, 
-        basePrice: price, orderedQuantity: qty, selectedUnit: unit 
+        basePrice: price, orderedQuantity: qty, selectedUnit: unit,
+        sku: product.sku || "—" 
     });
   } else {
-    window.cart.push({ id: id + unit, originalId: id, name: `${name} (${unit})`, basePrice: price, orderedQuantity: qty, unit, sub: price * qty });
+    window.cart.push({ id: id + unit, originalId: id, name: `${name} (${unit})`, basePrice: price, orderedQuantity: qty, unit, sub: price * qty, sku: product.sku || "—" });
   }
   window.showNotification(`تمت إضافة ${name}`);
   updateCartBadge();

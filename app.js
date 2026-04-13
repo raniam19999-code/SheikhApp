@@ -109,8 +109,12 @@ window.lastRenderedProducts = [];
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   window.deferredPrompt = e;
-  const installBanner = document.getElementById("install-banner");
-  if (installBanner) installBanner.classList.remove("hidden");
+  
+  // Show the banner after a short delay to ensure DOM is ready and doesn't interrupt loading
+  setTimeout(() => {
+    const installBanner = document.getElementById("install-banner");
+    if (installBanner) installBanner.classList.remove("hidden");
+  }, 2000);
 });
 
 window.renderCategories = function () {
@@ -208,7 +212,7 @@ window.renderProducts = function (productsToRender = window.products) {
       const isOutOfStock = p.status === "out_of_stock" || p.quantity <= 0;
       const priceBlock = window.renderPriceBlock
         ? window.renderPriceBlock(p)
-        : `<p class="font-bold text-slate-800">${p.price || 0} ج.م</p>`;
+        : `<p class="font-bold text-slate-800">${p.price || 0} ج.م للـ كيس</p>`;
 
       return `
         <div class="bg-white rounded-[2.5rem] p-4 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 hover:-translate-y-1.5 transition-all duration-500 group relative ${isOutOfStock ? "opacity-75" : ""}">
@@ -240,7 +244,7 @@ window.renderProducts = function (productsToRender = window.products) {
                     </div>
                     
                     <button 
-                        onclick="window.addToCart('${p.id}', '${p.name}', ${p.price || 0}, 'piece')"
+                        onclick="window.addToCart('${p.id}', '${p.name}', ${p.price || 0}, 'bag')"
                         data-id="${p.id}"
                         class="add-to-cart-btn p-4 bg-[#1B4332] text-white rounded-[1.25rem] shadow-xl shadow-emerald-100 hover:bg-[#2D6A4F] hover:shadow-2xl hover:scale-105 active:scale-90 transition-all duration-300 ${isOutOfStock ? "grayscale cursor-not-allowed" : ""}"
                         ${isOutOfStock ? "disabled" : ""}
@@ -259,45 +263,28 @@ window.renderProducts = function (productsToRender = window.products) {
 async function startApp() {
   if (window.lucide) window.lucide.createIcons();
   if ("serviceWorker" in navigator) {
-    try {
-      await navigator.serviceWorker.register("./service-worker.js");
-    } catch (e) {}
+    navigator.serviceWorker
+      .register("./service-worker.js?v=1.1")
+      .then((reg) => {
+        console.log("Service Worker registered successfully.");
+      })
+      .catch((err) => {
+        console.error("Service Worker registration failed:", err);
+      });
   }
 
-  await Auth.initAuth();
-  window.currentParentId = null;
-  window.activeSubCategoryName = null;
-
-  if (!window.unsubs.categories)
-    window.unsubs.categories = listenToCategories();
-  if (!window.unsubs.products) window.unsubs.products = listenToProducts();
-  await initializeDefaultCategories();
-  Auth.listenToAuth();
-}
-
-async function initializeDefaultCategories() {
   try {
     const categoryTree = [
       {
-        name: "المنطفات والعناية بالمنزل",
+        name: "المشروبات",
         img: "img/logo.png",
-        subs: ["مساحيق غسيل", "منظفات أطباق", "كلور ومطهرات", "ورقيات"]
-      },
-      {
-        name: "المواد الغذائية",
-        img: "img/logo.png",
-        subs: ["زيوت وسمن", "مكرونة وأرز", "بقوليات", "معلبات", "صلصة وتوابل"]
-      },
-      {
-        name: "المشروبات والعصائر",
-        img: "img/logo.png",
-        subs: ["شاي وقهوة", "عصائر", "مياه معدنية"]
+        subs: ["شاي وقهوة", "عصائر", "مياه معدنية"],
       },
       {
         name: "الألبان والجبن",
         img: "img/logo.png",
-        subs: ["أجبان", "ألبان", "زبادي"]
-      }
+        subs: ["أجبان", "ألبان", "زبادي"],
+      },
     ];
 
     const categoriesRef = window.firestoreUtils.collection(
