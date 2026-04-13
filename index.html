@@ -101,24 +101,54 @@
       .nav-btn.active span {
         color: var(--primary);
       }
-      .cat-img-box img {
+      /* القضاء التام على الفراغات البيضاء في الأقسام */
+      .category-card-premium {
+        width: 110px !important;
+        height: 110px !important;
+        position: relative !important;
+        overflow: hidden !important;
+        border-radius: 30px !important; /* شكل فخم بين المربع والدائرة */
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+        border: 3px solid #fff !important;
+        background-color: #f1f5f9 !important;
+        transition: all 0.4s ease !important;
+      }
+      .category-card-premium:hover {
+        transform: translateY(-8px) scale(1.05) !important;
+        box-shadow: 0 20px 40px rgba(27, 67, 50, 0.2) !important;
+        border-color: #1b4332 !important;
+      }
+      .category-image-fill {
+        position: absolute !important;
+        inset: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        object-fit: cover !important;
-        border-radius: inherit;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        transition: transform 0.8s ease !important;
+      }
+      .category-card-premium:hover .category-image-fill {
+        transform: scale(1.15) !important;
       }
     </style>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker
-            .register("./service-worker.js")
-            .then((reg) =>
-              console.log("Service Worker registered successfully.", reg.scope),
-            )
-            .catch((err) =>
-              console.log("Service Worker registration failed:", err),
-            );
+            .register("./service-worker.js?v=1.1")
+            .then((reg) => {
+              console.log("Service Worker registered.", reg.scope);
+              // إجبار التحديث فوراً عند وجود نسخة جديدة
+              reg.onupdatefound = () => {
+                const installingWorker = reg.installing;
+                installingWorker.onstatechange = () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    window.location.reload();
+                  }
+                };
+              };
+            });
         });
       }
     </script>
@@ -1846,6 +1876,6 @@
       >
     </button>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=9.9"></script>
   </body>
 </html>

@@ -256,8 +256,8 @@ export function renderAdminCategories() {
       (c) => `
     <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
       <div class="flex items-center gap-3">
-        <div class="cat-img-box w-12 h-12 rounded-full overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0] relative">
-          <img src="${c.img || "img/logo.png"}" class="absolute inset-0 w-full h-full object-cover">
+        <div class="w-12 h-12 rounded-full overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0] relative">
+          <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${c.img || "img/logo.png"}');"></div>
         </div>
         <p class="font-bold text-xs text-slate-800">${c.name}</p>
       </div>

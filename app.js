@@ -144,11 +144,11 @@ window.renderCategories = function () {
         const hasSubs = window.categories.some(child => child.parentId === c.id);
         return `
       <div onclick="window.handleCategoryClick('${c.id}', '${c.name}', ${hasSubs})" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
-        <div class="cat-img-box relative w-28 sm:w-32 h-28 sm:h-32 rounded-full bg-slate-50 shadow-lg border-2 border-white overflow-hidden group-hover:shadow-2xl group-hover:border-emerald-200 group-hover:-translate-y-2 transition-all duration-500">
-          <img src="${c.img || "img/logo.png"}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" loading="lazy" onerror="this.src='img/logo.png'; this.classList.add('object-cover')">
-          <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <div class="category-card-premium">
+          <div class="category-image-fill" style="background-image: url('${c.img || "img/logo.png"}');"></div>
+          <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         </div>
-        <span class="text-[11px] sm:text-xs font-black text-slate-700 truncate max-w-[100px] group-hover:text-emerald-700 transition-colors uppercase tracking-wide">${c.name}</span>
+        <span class="text-[12px] font-black text-slate-700 text-center leading-tight max-w-[110px] group-hover:text-emerald-800 transition-colors uppercase tracking-tight">${c.name}</span>
       </div>
         `;
       }
