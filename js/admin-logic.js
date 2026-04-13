@@ -66,11 +66,12 @@ export function openProductModal(product = null) {
     ? product.categoryId || ""
     : "";
   document.getElementById("p-unit").value = product
-    ? product.unit || "قطعة"
+    ? product.unitMeasurement || "قطعة"
     : "قطعة";
   document.getElementById("p-quantities").value = product
     ? product.availableQuantities || ""
     : "";
+  document.getElementById("p-img-url").value = "";
   document.getElementById("p-img-base64").value = product
     ? product.img || ""
     : "";
@@ -108,9 +109,9 @@ export async function saveProduct() {
     name,
     categoryId,
     category: categoryObj ? categoryObj.name : "عام",
-    unit,
+    unitMeasurement: unit, // تم التوحيد مع نظام جلب البيانات
     availableQuantities: quantities,
-    img,
+    img: img || document.getElementById("p-img-url").value, // استخدام الرابط المباشر إذا لم تكتمل عملية المعالجة
     ...pricing,
     updatedAt: window.firestoreUtils.serverTimestamp(),
   };
@@ -137,7 +138,11 @@ export async function saveProduct() {
     }
     closeModals();
   } catch (e) {
-    window.showToast("خطأ في الحفظ", "error");
+    if (e.code === "permission-denied") {
+      window.showToast("ليس لديك صلاحية للقيام بهذا الإجراء (تأكد من تسجيل الدخول كمدير)", "error");
+    } else {
+      window.showToast("خطأ في الحفظ: " + (e.message || "حدث خطأ غير متوقع"), "error");
+    }
   }
 }
 window.saveProduct = saveProduct;
@@ -174,7 +179,7 @@ export async function saveCategory() {
   const data = {
     name,
     parentId,
-    img,
+    img: img || document.getElementById("c-img-url").value, // استخدام الرابط المباشر كاحتياط
     updatedAt: window.firestoreUtils.serverTimestamp(),
   };
   const ref = window.firestoreUtils.collection(
@@ -212,9 +217,11 @@ export function renderAdminProducts() {
   let html = products
     .map(
       (p) => `
-    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm">
+    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
       <div class="flex items-center gap-3">
-        <img src="${p.img || "img/logo.png"}" class="w-10 h-10 rounded-lg object-contain bg-slate-50">
+        <div class="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0]">
+          <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover">
+        </div>
         <div>
           <p class="font-bold text-xs text-slate-800">${p.name}</p>
           <div class="flex items-center gap-1 mt-0.5 whitespace-nowrap overflow-hidden">
@@ -247,9 +254,11 @@ export function renderAdminCategories() {
   let html = categories
     .map(
       (c) => `
-    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm">
+    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
       <div class="flex items-center gap-3">
-        <img src="${c.img || "img/logo.png"}" class="w-10 h-10 rounded-lg object-contain bg-slate-50">
+        <div class="cat-img-box w-12 h-12 rounded-full overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0] relative">
+          <img src="${c.img || "img/logo.png"}" class="absolute inset-0 w-full h-full object-cover">
+        </div>
         <p class="font-bold text-xs text-slate-800">${c.name}</p>
       </div>
       <div class="flex gap-2">
@@ -315,12 +324,11 @@ window.deleteCategory = deleteCategory;
 
 // 0. التبديل بين التبويبات الفرعية في لوحة التحكم
 export function showAdminSubTab(tab) {
-  const tabs = ["p", "c", "o", "i", "bot"];
+  const tabs = ["p", "c", "o", "i", "bot", "import"];
   tabs.forEach((t) => {
     const btn = document.getElementById(`admin-tab-${t}`);
     const list = document.getElementById(`admin-${t}-list`);
     if (btn) {
-      // تنسيق الزر النشط
       const isActive = t === tab;
       btn.classList.toggle("bg-white", isActive);
       btn.classList.toggle("shadow-sm", isActive);
@@ -332,8 +340,8 @@ export function showAdminSubTab(tab) {
     if (list) list.classList.toggle("hidden", t !== tab);
   });
 
-  // رندرة المحتوى بناءً على التبويب
   if (tab === "i") renderInventoryAudit();
+  if (tab === "import") renderAdminImportTools();
   if (tab === "p" && typeof window.renderAdminProducts === "function")
     window.renderAdminProducts();
   if (tab === "c" && typeof renderAdminCategories === "function")
@@ -344,6 +352,48 @@ export function showAdminSubTab(tab) {
   if (window.lucide) lucide.createIcons();
 }
 window.showAdminSubTab = showAdminSubTab;
+
+// رندرة واجهة الاستيراد المخصصة
+export function renderAdminImportTools() {
+    const list = document.getElementById("admin-import-list");
+    if (!list) return;
+    
+    list.innerHTML = `
+        <div class="space-y-6 animate-fade-in-up">
+            <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                        <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-slate-800 text-lg">استيراد المنتجات وتحديث الأسعار</h3>
+                        <p class="text-xs text-slate-500 font-semibold">ارفع ملف إكسل يحتوي على (الكود، الصنف، السعر، القسم)</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="document.getElementById('bulk-file-input').click()" class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-emerald-500 hover:bg-emerald-50 transition-all group">
+                        <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-300 group-hover:text-emerald-500 mb-2"></i>
+                        <span class="text-sm font-black text-slate-700">رفع ملف المنتجات الجديد</span>
+                        <span class="text-[10px] text-slate-400">لإضافة أصناف جديدة بالكامل</span>
+                    </button>
+                    <button onclick="openBulkPriceUpdateModal()" class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-amber-500 hover:bg-amber-50 transition-all group">
+                        <i data-lucide="refresh-cw" class="w-10 h-10 text-slate-300 group-hover:text-amber-500 mb-2"></i>
+                        <span class="text-sm font-black text-slate-700">تحديث الأسعار فقط</span>
+                        <span class="text-[10px] text-slate-400">تحديث أسعار الأصناف الموجودة مسبقاً</span>
+                    </button>
+                    <button onclick="openBulkImportModal()" class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-blue-500 hover:bg-blue-50 transition-all group md:col-span-2">
+                        <i data-lucide="filter" class="w-10 h-10 text-slate-300 group-hover:text-blue-500 mb-2"></i>
+                        <span class="text-sm font-black text-slate-700">إضافة سريعة بكلمات مفتاحية</span>
+                        <span class="text-[10px] text-slate-400">رفع أصناف محددة فقط من ملف إكسل ضخم بناءً على كلمات دالة</span>
+                    </button>
+                </div>
+                <input type="file" id="bulk-file-input" class="hidden" accept=".xlsx,.xls,.csv" onchange="handleBulkFileUpload(event)">
+            </div>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
 
 // 1. استيراد ومعالجة ملف الإكسل (Bulk Upload)
 export async function handleBulkFileUpload(event) {
@@ -387,19 +437,15 @@ async function processBulkProducts(rows) {
       const r = {};
       Object.keys(row).forEach((k) => (r[k.trim()] = row[k]));
 
-      const sku = String(r.SKU || r["كود"] || r["الكود"] || "").trim();
-      const name = String(
-        r.Name ||
-          r["الاسم"] ||
-          r["اسم المنتج"] ||
-          r["الصنف"] ||
-          r["البيان"] ||
-          r["اسم الصنف"] ||
-          "",
-      ).trim();
+      // البحث بذكاء عن الأعمدة المطلوبة
+      const sku = String(findValByParts(r, ["كود", "SKU", "الكود"])).trim();
+      const name = String(findValByParts(r, ["صنف", "اسم", "البيان", "Name"])).trim();
       if (!name) continue;
 
-      // منطق البحث عن منتج موجود (بالكود أو الاسم)
+      const wholesalePrice = parseExcelNumber(findValByParts(r, ["جملة", "Wholesale", "سعر"]));
+      const bundlePrice = parseExcelNumber(findValByParts(r, ["ربطة", "Bundle", "سعر الربطة"]));
+      const cartonPrice = parseExcelNumber(findValByParts(r, ["كرتونة", "Carton", "سعر الكرتونة"]));
+
       const normName = normalizeArabic(name);
       let existing = window.products.find(
         (p) =>
@@ -431,7 +477,7 @@ async function processBulkProducts(rows) {
         },
         quantity: totalStock,
         unitMeasurement: String(r.Unit || r["التعبئة"] || r["حجم"] || r["وزن"] || r["كمية الوحدة"] || "").trim(),
-        category: r.Category || r["القسم"] || r["اسم المجموعه"] || r["المجموعة"] || r["التصنيف"] || "عام",
+        category: String(r.Category || r["القسم"] || r["اسم المجموعه"] || r["المجموعة"] || r["التصنيف"] || "عام").trim(),
         minThreshold: Number(r.MinStock || r["حد النواقص"] || 5),
         updatedAt: window.firestoreUtils.serverTimestamp(),
         status: deriveStatus(
@@ -473,6 +519,99 @@ function deriveStatus(qty, min) {
   if (qty <= min) return "low_stock";
   return "available";
 }
+window.deriveStatus = deriveStatus;
+
+// وظائف المودال الخاص بالاستيراد بكلمات مفتاحية
+export function openBulkImportModal() {
+    const modal = document.getElementById("bulk-import-modal");
+    if (modal) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+    }
+}
+window.openBulkImportModal = openBulkImportModal;
+
+export function closeBulkImportModal() {
+    const modal = document.getElementById("bulk-import-modal");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        window.lastUploadedRows = null;
+    }
+}
+window.closeBulkImportModal = closeBulkImportModal;
+
+// معالجة وحفظ المنتجات المفلترة بالكلمات المفتاحية
+export async function saveBulkProducts() {
+    const keywords = document.getElementById("bulk-keywords").value.split(",").map(k => normalizeArabic(k)).filter(Boolean);
+    const sheetDataText = document.getElementById("bulk-sheet-data").value.trim();
+    const unit = document.getElementById("bulk-unit").value;
+    const quantities = document.getElementById("bulk-quantities").value;
+    
+    let rows = window.lastUploadedRows || [];
+
+    // إذا قام المستخدم بلصق نص يدوياً بدلاً من رفع ملف
+    if (rows.length === 0 && sheetDataText) {
+        const lines = sheetDataText.split("\n");
+        rows = lines.map(line => {
+            const parts = line.split(/[\t,]/);
+            return { "الاسم": parts[0], "السعر": parts[1], "الكود": parts[2], "الكمية": parts[3] };
+        }).filter(r => r.الاسم);
+    }
+
+    if (rows.length === 0) return window.showToast("يرجى رفع ملف أو لصق بيانات أولاً", "warning");
+    if (keywords.length === 0) return window.showToast("يرجى إدخال كلمات مفتاحية للفلترة", "warning");
+
+    // تصفية الصفوف بناءً على الكلمات المفتاحية
+    const filteredRows = rows.filter(row => {
+        // تنظيف اسم المنتج وتوحيد الحروف
+        const nameNormalized = normalizeArabic(findValByParts(row, ["صنف", "اسم", "البيان", "Name"]));
+        // تقسيم الاسم إلى كلمات بناءً على المسافات وعلامات الترقيم العربية والأجنبية
+        const words = nameNormalized.split(/[\s،,._/-]+/);
+        // التأكد من أن الكلمة المفتاحية موجودة ككلمة كاملة مستقلة
+        return keywords.some(k => words.includes(k));
+    });
+
+    if (filteredRows.length === 0) return window.showToast("لم يتم العثور على أصناف مطابقة للكلمات المفتاحية", "warning");
+
+    if (confirm(`تم العثور على ${filteredRows.length} صنف مطابق. هل تريد إضافتهم الآن؟`)) {
+        window.showNotification("جاري معالجة الأصناف المختارة...");
+        
+        // تعديل البيانات لتشمل الوحدة والكميات المحددة في المودال قبل الإرسال
+        const rowsToProcess = filteredRows.map(r => {
+            const rowCleaned = {};
+            Object.keys(r).forEach(k => rowCleaned[k.trim()] = r[k]);
+            
+            // التأكد من وجود الأعمدة الأساسية
+            const sku = String(findValByParts(rowCleaned, ["كود", "SKU", "الكود"])).trim();
+            const name = String(findValByParts(rowCleaned, ["صنف", "اسم", "البيان", "Name"])).trim();
+            const price = parseExcelNumber(findValByParts(rowCleaned, ["سعر", "Price", "جملة"]));
+            const qty = parseExcelNumber(findValByParts(rowCleaned, ["كمية", "Stock", "الكمية", "مخزون"]));
+
+            return {
+                ...rowCleaned,
+                "Name": name,
+                "SKU": sku,
+                "Price": price,
+                "Quantity": qty,
+                "Unit": unit,
+                "MinStock": 5,
+                "AvailableQuantities": quantities 
+            };
+        });
+
+        try {
+            await processBulkProducts(rowsToProcess);
+            closeBulkImportModal();
+            document.getElementById("bulk-keywords").value = "";
+            document.getElementById("bulk-sheet-data").value = "";
+        } catch (e) {
+            console.error(e);
+            window.showToast("حدث خطأ أثناء الحفظ", "error");
+        }
+    }
+}
+window.saveBulkProducts = saveBulkProducts;
 
 // 2. إدارة جرد المخزن والنواقص
 export function renderInventoryAudit() {

@@ -3,6 +3,17 @@
 ======================================================== */
 
 export async function initAuth() {
+  // تفعيل بقاء تسجيل الدخول حتى عند إغلاق المتصفح (المتطلب الأساسي ليشعر المستخدم أنه تطبيق حقيقي)
+  try {
+    const { setPersistence, browserLocalPersistence } = window.authUtils;
+    if (setPersistence && browserLocalPersistence) {
+        await setPersistence(window.auth, browserLocalPersistence);
+        console.log("Auth persistence set to LOCAL");
+    }
+  } catch(e) {
+    console.warn("Failed to set auth persistence:", e);
+  }
+
   if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
     await window.authUtils.signInWithCustomToken(
       window.auth,
@@ -12,6 +23,13 @@ export async function initAuth() {
     try {
       await window.authUtils.signInAnonymously(window.auth);
     } catch (e) {
+      if (e.code === "auth/admin-restricted-operation") {
+        window.showToast(
+          "يجب تفعيل خاصية (Anonymous Auth) من منصة Firebase ليعمل التطبيق بشكل صحيح.",
+          "error",
+          8000,
+        );
+      }
       console.warn("Auth Info:", e.code, e.message);
     }
   }

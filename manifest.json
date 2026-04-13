@@ -1,9 +1,12 @@
 {
   "name": "مدينة أولاد الشيخ للبيع بالجملة",
   "short_name": "أولاد الشيخ",
-  "start_url": "index.html",
+  "description": "تطبيق تسوق لبيع المواد الغذائية والمنظفات بالجملة بمدينة أولاد الشيخ والمناطق المجاورة.",
+  "categories": ["shopping", "food", "lifestyle" ],
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "background_color": "#f8fafc",
   "theme_color": "#1B4332",
   "orientation": "portrait-primary",
   "icons": [

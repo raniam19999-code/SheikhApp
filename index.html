@@ -6,19 +6,38 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>مدينة أولاد الشيخ - متجر الجملة</title>
+    <title>مدينة أولاد الشيخ - جملة الجملة | مواد غذائية ومنظفات</title>
+    <meta name="description" content="متجر مدينة أولاد الشيخ لبيع المواد الغذائية والمنظفات جملة الجملة. أفضل الأسعار، جودة عالية، وتوصيل سريع. تسوق الآن من جملة أولاد الشيخ." />
+    <meta name="keywords" content="مدينة أولاد الشيخ، جملة الجملة، جملة أولاد الشيخ، منظفات جملة، مواد غذائية جملة، متجر أولاد الشيخ" />
+    <link rel="canonical" href="https://sheikh-app.vercel.app/" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sheikh-app.vercel.app/" />
+    <meta property="og:title" content="مدينة أولاد الشيخ - متجر الجملة" />
+    <meta property="og:description" content="متجر أولاد الشيخ لبيع المواد الغذائية والمنظفات بالجملة. ثقة، جودة، وسرعة في التوصيل." />
+    <meta property="og:image" content="img/logo.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="مدينة أولاد الشيخ - متجر الجملة" />
+    <meta property="twitter:description" content="متجر أولاد الشيخ لبيع المواد الغذائية والمنظفات بالجملة. ثقة، جودة، وسرعة في التوصيل." />
+    <meta property="twitter:image" content="img/logo.png" />
 
     <!-- PWA Setup -->
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#1B4332" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
     />
     <meta name="apple-mobile-web-app-title" content="أولاد الشيخ" />
     <link rel="apple-touch-icon" href="img/logo.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="img/logo.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="img/logo.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="img/logo.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="img/logo.png" />
 
     <!-- Tailwind CSS CDN - For development only. In production, use PostCSS plugin or Tailwind CLI -->
@@ -33,6 +52,62 @@
     <link rel="stylesheet" href="css/styles.css" />
     <script src="js/pricing.js" defer></script>
     <script src="js/chatbot.js" defer></script>
+    <style>
+      :root {
+        --primary: #1b4332;
+        --secondary: #2d6a4f;
+      }
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        font-family: "Inter", "Cairo", sans-serif;
+        background-color: #f8fafc;
+        overflow-x: hidden;
+      }
+      img {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+      }
+      .card-shadow {
+        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      @keyframes modal-enter {
+        from {
+          opacity: 0;
+          transform: translateY(20px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .modal-enter {
+        animation: modal-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .nav-btn.active .nav-icon-bg {
+        background-color: var(--primary);
+        color: white;
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px -5px rgba(27, 67, 50, 0.3);
+      }
+      .nav-btn.active span {
+        color: var(--primary);
+      }
+      .cat-img-box img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        border-radius: inherit;
+      }
+    </style>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
@@ -47,6 +122,59 @@
         });
       }
     </script>
+
+    <!-- Structured Data (JSON-LD) for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "مدينة أولاد الشيخ - جملة الجملة",
+      "image": "https://sheikh-app.vercel.app/img/logo.png",
+      "@id": "https://sheikh-app.vercel.app/",
+      "url": "https://sheikh-app.vercel.app/",
+      "telephone": "",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "",
+        "addressLocality": "الشرقية/مصر",
+        "addressRegion": "",
+        "postalCode": "",
+        "addressCountry": "EG"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 0,
+        "longitude": 0
+      },
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "08:00",
+        "closes": "22:00"
+      },
+      "sameAs": []
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "url": "https://sheikh-app.vercel.app/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://sheikh-app.vercel.app/?s={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body class="pb-24 transition-all duration-300">
     <!-- Install PWA Banner -->
@@ -58,6 +186,7 @@
         <img
           src="img/logo.png"
           class="w-10 h-10 object-contain rounded-lg shadow-sm"
+          alt="لوجو مدينة أولاد الشيخ"
         />
         <div>
           <p class="text-xs font-black text-slate-800">
@@ -86,6 +215,9 @@
       </div>
     </div>
 
+    <!-- Hidden H1 for SEO -->
+    <h1 class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">مدينة أولاد الشيخ - جملة الجملة للمواد الغذائية والمنظفات</h1>
+
     <!-- Header -->
     <header
       class="bg-white/90 backdrop-blur-xl sticky top-0 z-50 p-3 sm:p-4 border-b border-slate-200 shadow-sm transition-all"
@@ -96,7 +228,7 @@
           <img
             class="w-36 h-24 sm:w-52 sm:h-36 object-contain drop-shadow-sm"
             src="img/logo.png"
-            alt="الشعار"
+            alt="مدينة أولاد الشيخ - جملة الجملة للمواد الغذائية والمنظفات"
           />
           <span
             id="admin-badge"
@@ -114,6 +246,7 @@
             autocomplete="off"
             readonly
             onfocus="this.removeAttribute('readonly')"
+            onkeydown="if(event.key === 'Enter') this.blur()"
             placeholder="ابحث عن منتج، قسم..."
             class="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 sm:py-3.5 pr-10 sm:pr-12 pl-4 focus:bg-white focus:border-[#1B4332] focus:ring-4 focus:ring-slate-100 outline-none text-xs sm:text-sm transition-all shadow-inner font-semibold text-slate-700"
           />
@@ -313,6 +446,16 @@
               ></i>
               <span class="font-bold">جاري تحميل المنتجات... </span>
             </div>
+          </div>
+
+          <!-- Load More Button -->
+          <div id="load-more-container" class="pb-20 text-center hidden">
+            <button
+              onclick="window.loadMoreProducts()"
+              class="bg-white border-2 border-slate-200 text-slate-600 px-8 py-3 rounded-2xl font-black hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm active:scale-95"
+            >
+              عرض المزيد من المنتجات
+            </button>
           </div>
         </div>
       </section>
@@ -790,6 +933,13 @@
                 المخزن
               </button>
               <button
+                onclick="showAdminSubTab('import')"
+                id="admin-tab-import"
+                class="flex-1 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
+              >
+                الاستيراد
+              </button>
+              <button
                 onclick="showAdminSubTab('bot')"
                 id="admin-tab-bot"
                 class="flex-1 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-all hidden"
@@ -821,6 +971,7 @@
             <div id="admin-c-list" class="space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3 hidden"></div>
             <div id="admin-o-list" class="space-y-4 hidden"></div>
             <div id="admin-i-list" class="space-y-4 hidden"></div>
+            <div id="admin-import-list" class="space-y-4 hidden"></div>
             
             <!-- لوحة تدريب البوت (للمدير الأساسي فقط) -->
             <div id="admin-bot-list" class="space-y-4 hidden">
@@ -838,11 +989,11 @@
                 <div class="mt-6 flex flex-col gap-3 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
                   <div>
                     <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">الكلمات المفتاحية (يرجى فصلها بفاصلة ,)</label>
-                    <input type="text" id="bot-train-keywords" placeholder="مثال: مواعيد,الساعة,عنوان" class="w-full p-3.5 bg-white rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/20 transition-all" />
+                    <input type="text" id="bot-train-keywords" onkeydown="if(event.key === 'Enter') document.getElementById('bot-train-response').focus()" placeholder="مثال: مواعيد,الساعة,عنوان" class="w-full p-3.5 bg-white rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/20 transition-all" />
                   </div>
                   <div>
                     <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">نص الرد الذي سيقوله البوت للعميل</label>
-                    <textarea id="bot-train-response" placeholder="أهلاً بك، نعمل من 9 صباحاً حتى 10 مساءً..." class="w-full p-3.5 bg-white rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/20 transition-all min-h-[100px] resize-none"></textarea>
+                    <textarea id="bot-train-response" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.saveBotResponse(); }" placeholder="أهلاً بك، نعمل من 9 صباحاً حتى 10 مساءً..." class="w-full p-3.5 bg-white rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/20 transition-all min-h-[100px] resize-none"></textarea>
                   </div>
                   <button onclick="window.saveBotResponse()" class="w-full mt-2 bg-emerald-500 text-white font-black py-4 rounded-xl hover:bg-emerald-600 active:scale-95 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
                     <i data-lucide="save" class="w-5 h-5"></i> حفظ الرد في ذاكرة البوت
@@ -920,7 +1071,7 @@
             onclick="closeModals()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
 
@@ -940,13 +1091,14 @@
                 type="url"
                 id="p-img-url"
                 placeholder="انقر هنا ولصق الرابط..."
+                oninput="window.applyProductImageUrl()"
                 class="flex-1 p-3.5 bg-white rounded-2xl outline-none border border-emerald-200 focus:border-emerald-500 font-semibold text-slate-800 text-xs shadow-sm"
                 dir="ltr"
               />
               <button
                 type="button"
                 onclick="window.applyProductImageUrl()"
-                class="bg-emerald-600 text-white px-5 rounded-2xl text-xs font-black hover:bg-emerald-700 transition-all active:scale-95 shadow-md shadow-emerald-200 flex items-center gap-1"
+                class="bg-emerald-600 text-white px-8 rounded-2xl text-sm font-black hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200 flex items-center gap-2"
               >
                 تطبيق
               </button>
@@ -1008,6 +1160,7 @@
           <input
             type="text"
             id="p-name"
+            onkeydown="if(event.key === 'Enter') saveProduct()"
             placeholder="مثال: بطاطس"
             class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 font-semibold text-slate-800"
           />
@@ -1043,6 +1196,7 @@
                 <input
                   type="number"
                   id="p-price"
+                  onkeydown="if(event.key === 'Enter') saveProduct()"
                   placeholder="50"
                   step="0.01"
                   class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 font-semibold text-slate-800"
@@ -1117,7 +1271,7 @@
             onclick="closeBulkImportModal()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1226,7 +1380,7 @@
             onclick="closePriceUpdateModal()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
         <div id="price-update-content">
@@ -1252,7 +1406,7 @@
             onclick="closeBulkPriceUpdateModal()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1275,6 +1429,7 @@
             <input
               type="number"
               id="bulk-price-percentage"
+              onkeydown="if(event.key === 'Enter') saveBulkPriceUpdates()"
               placeholder="مثال: 10 (لزيادة 10%)"
               step="0.1"
               class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-amber-300 focus:ring-4 focus:ring-amber-50 font-semibold text-slate-800"
@@ -1369,6 +1524,7 @@
             <input
               type="text"
               id="modal-full-name"
+              onkeydown="if(event.key === 'Enter') document.getElementById('modal-phone').focus()"
               placeholder="الاسم بالكامل"
               class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 transition-all font-semibold"
             />
@@ -1383,6 +1539,7 @@
               <input
                 type="tel"
                 id="modal-phone"
+                onkeydown="if(event.key === 'Enter') document.getElementById('modal-email').focus()"
                 placeholder="رقم الموبايل"
                 class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 transition-all font-semibold text-left"
                 dir="ltr"
@@ -1392,6 +1549,7 @@
           <input
             type="email"
             id="modal-email"
+            onkeydown="if(event.key === 'Enter') document.getElementById('modal-password').focus()"
             placeholder="البريد الإلكتروني"
             class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 transition-all text-left font-semibold"
             dir="ltr"
@@ -1399,6 +1557,7 @@
           <input
             type="password"
             id="modal-password"
+            onkeydown="if(event.key === 'Enter') handleModalAuth()"
             placeholder="كلمة المرور"
             class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 transition-all text-left font-semibold"
             dir="ltr"
@@ -1438,7 +1597,7 @@
             onclick="closeModals()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
 
@@ -1489,16 +1648,17 @@
             <input
               type="url"
               id="c-img-url"
+              oninput="window.applyCategoryImageUrl()"
               placeholder="أو أدخل رابط صورة مباشر"
               class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-300 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800"
               dir="ltr"
             />
             <button
               type="button"
-              onclick="applyCategoryImageUrl()"
-              class="w-full bg-emerald-500 text-white py-3 rounded-2xl font-black hover:bg-emerald-600 transition-colors"
+              onclick="window.applyCategoryImageUrl()"
+              class="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-100 text-lg"
             >
-              استخدام رابط الصورة
+              تطبيق الرابط
             </button>
           </div>
         </div>
@@ -1510,6 +1670,7 @@
           <input
             type="text"
             id="c-name"
+            onkeydown="if(event.key === 'Enter') saveCategory()"
             placeholder="مثال: خضروات طازجة"
             class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-300 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800"
           />

@@ -395,6 +395,8 @@ window.customChatbotResponses = [];
 
 // جلب الردود المخصصة من قاعدة البيانات
 window.loadCustomBotResponses = async function() {
+    if (!window.firestoreUtils || !window.db) return;
+    
     try {
         const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "chatbotQA");
         window.firestoreUtils.onSnapshot(ref, (snapshot) => {
