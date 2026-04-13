@@ -7,16 +7,19 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <title>مدينة أولاد الشيخ - متجر الجملة</title>
-    
+
     <!-- PWA Setup -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1B4332">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="أولاد الشيخ">
-    <link rel="apple-touch-icon" href="img/logo.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="img/logo.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="img/logo.png">
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1B4332" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="أولاد الشيخ" />
+    <link rel="apple-touch-icon" href="img/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="img/logo.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="img/logo.png" />
 
     <!-- Tailwind CSS CDN - For development only. In production, use PostCSS plugin or Tailwind CLI -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,34 +29,61 @@
     />
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.172/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <link rel="stylesheet" href="css/styles.css" />
     <script src="js/pricing.js" defer></script>
     <script src="js/chatbot.js" defer></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./service-worker.js')
-            .then(reg => console.log('Service Worker registered successfully.', reg.scope))
-            .catch(err => console.log('Service Worker registration failed:', err));
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("./service-worker.js")
+            .then((reg) =>
+              console.log("Service Worker registered successfully.", reg.scope),
+            )
+            .catch((err) =>
+              console.log("Service Worker registration failed:", err),
+            );
         });
       }
     </script>
   </head>
   <body class="pb-24 transition-all duration-300">
     <!-- Install PWA Banner -->
-    <div id="install-banner" class="hidden fixed top-24 left-4 right-4 z-[1001] bg-white p-4 rounded-2xl shadow-2xl border border-emerald-100 animate-bounce flex items-center justify-between max-w-4xl mx-auto">
-        <div class="flex items-center gap-3">
-            <img src="img/logo.png" class="w-10 h-10 object-contain rounded-lg shadow-sm">
-            <div>
-                <p class="text-xs font-black text-slate-800">تطبيق مدينة أولاد الشيخ</p>
-                <p class="text-[10px] text-slate-500 font-bold">ثبت التطبيق لتجربة تسوق أسرع</p>
-            </div>
+    <div
+      id="install-banner"
+      class="hidden fixed top-24 left-4 right-4 z-[1001] bg-white p-4 rounded-2xl shadow-2xl border border-emerald-100 animate-bounce flex items-center justify-between max-w-4xl mx-auto"
+    >
+      <div class="flex items-center gap-3">
+        <img
+          src="img/logo.png"
+          class="w-10 h-10 object-contain rounded-lg shadow-sm"
+        />
+        <div>
+          <p class="text-xs font-black text-slate-800">
+            تطبيق مدينة أولاد الشيخ
+          </p>
+          <p class="text-[10px] text-slate-500 font-bold">
+            ثبت التطبيق لتجربة تسوق أسرع
+          </p>
         </div>
-        <div class="flex gap-2">
-            <button onclick="document.getElementById('install-banner').classList.add('hidden')" class="text-slate-400 text-[10px] font-bold px-2">لاحقاً</button>
-            <button onclick="triggerPWAInstall()" class="bg-[#1B4332] text-white px-5 py-2 rounded-xl text-xs font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all">تثبيت</button>
-        </div>
+      </div>
+      <div class="flex gap-2">
+        <button
+          onclick="
+            document.getElementById('install-banner').classList.add('hidden')
+          "
+          class="text-slate-400 text-[10px] font-bold px-2"
+        >
+          لاحقاً
+        </button>
+        <button
+          onclick="triggerPWAInstall()"
+          class="bg-[#1B4332] text-white px-5 py-2 rounded-xl text-xs font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all"
+        >
+          تثبيت
+        </button>
+      </div>
     </div>
 
     <!-- Header -->
@@ -83,7 +113,7 @@
             name="search_field_unique_name"
             autocomplete="off"
             readonly
-            onfocus="this.removeAttribute('readonly');"
+            onfocus="this.removeAttribute('readonly')"
             placeholder="ابحث عن منتج، قسم..."
             class="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 sm:py-3.5 pr-10 sm:pr-12 pl-4 focus:bg-white focus:border-[#1B4332] focus:ring-4 focus:ring-slate-100 outline-none text-xs sm:text-sm transition-all shadow-inner font-semibold text-slate-700"
           />
@@ -127,7 +157,10 @@
                 >
                   مسح الكل
                 </button>
-                <button onclick="toggleNotificationPanel()" class="p-1.5 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 sm:hidden transition-colors">
+                <button
+                  onclick="toggleNotificationPanel()"
+                  class="p-1.5 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 sm:hidden transition-colors"
+                >
                   <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
               </div>
@@ -238,10 +271,30 @@
               المنتجات
             </h3>
             <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                <button onclick="filterByStatus('all')" class="bg-slate-100 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap">الكل</button>
-                <button onclick="filterByStatus('available')" class="bg-emerald-100 text-emerald-700 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap">متوفر</button>
-                <button onclick="filterByStatus('low_stock')" class="bg-amber-100 text-amber-700 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap">كمية محدودة</button>
-                <button onclick="filterByStatus('out_of_stock')" class="bg-red-100 text-red-700 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap">نفذت</button>
+              <button
+                onclick="filterByStatus('all')"
+                class="bg-slate-100 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap"
+              >
+                الكل
+              </button>
+              <button
+                onclick="filterByStatus('available')"
+                class="bg-emerald-100 text-emerald-700 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap"
+              >
+                متوفر
+              </button>
+              <button
+                onclick="filterByStatus('low_stock')"
+                class="bg-amber-100 text-amber-700 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap"
+              >
+                كمية محدودة
+              </button>
+              <button
+                onclick="filterByStatus('out_of_stock')"
+                class="bg-red-100 text-red-700 text-[10px] px-3 py-1.5 rounded-full font-bold whitespace-nowrap"
+              >
+                نفذت
+              </button>
             </div>
             <div class="flex gap-2">
               <div id="bulk-add-container"></div>
@@ -258,7 +311,7 @@
                 data-lucide="loader-2"
                 class="w-10 h-10 animate-spin text-emerald-500 mb-3"
               ></i>
-              <span class="font-bold">جاري تحميل المنتجات...  </span>
+              <span class="font-bold">جاري تحميل المنتجات... </span>
             </div>
           </div>
         </div>
@@ -507,7 +560,13 @@
       <!-- Account / Admin Panel Tab -->
       <section id="account" class="tab-content p-4 sm:p-5 max-w-4xl mx-auto">
         <!-- Auth View -->
-        <div id="auth-view" class="hidden max-w-sm mx-auto pt-10">
+        <div id="auth-view" class="hidden max-w-sm mx-auto pt-10 relative">
+          <button
+            onclick="showTab('home')"
+            class="absolute top-0 left-0 p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
+          >
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
           <div class="text-center mb-10">
             <div
               class="w-24 h-24 bg-emerald-50 text-primary rounded-[2rem] flex items-center justify-center mx-auto mb-5 shadow-inner"
@@ -730,6 +789,13 @@
               >
                 المخزن
               </button>
+              <button
+                onclick="showAdminSubTab('bot')"
+                id="admin-tab-bot"
+                class="flex-1 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-all hidden"
+              >
+                البوت
+              </button>
             </div>
 
             <!-- تم دمج أدوات الرفع داخل تبويب المخزن مباشرة لسهولة الوصول -->
@@ -753,15 +819,79 @@
                 </p>
               </div>
             </div>
-            <div
-              id="admin-c-list"
-              class="space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3 hidden"
-            ></div>
+            <div id="admin-c-list" class="space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3 hidden"></div>
             <div id="admin-o-list" class="space-y-4 hidden"></div>
             <div id="admin-i-list" class="space-y-4 hidden"></div>
+            
+            <!-- لوحة تدريب البوت (للمدير الأساسي فقط) -->
+            <div id="admin-bot-list" class="space-y-4 hidden">
+              <div class="bg-white p-4 sm:p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="w-10 h-10 bg-[#1B4332] text-white rounded-xl flex items-center justify-center shadow-inner">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-black text-slate-800 text-lg">تدريب الشات بوت</h3>
+                    <p class="text-xs text-slate-500 font-semibold">أضف كلمات مفتاحية وردوداً مخصصة ليدرسها البوت.</p>
+                  </div>
+                </div>
+                
+                <div class="mt-6 flex flex-col gap-3 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
+                  <div>
+                    <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">الكلمات المفتاحية (يرجى فصلها بفاصلة ,)</label>
+                    <input type="text" id="bot-train-keywords" placeholder="مثال: مواعيد,الساعة,عنوان" class="w-full p-3.5 bg-white rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/20 transition-all" />
+                  </div>
+                  <div>
+                    <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">نص الرد الذي سيقوله البوت للعميل</label>
+                    <textarea id="bot-train-response" placeholder="أهلاً بك، نعمل من 9 صباحاً حتى 10 مساءً..." class="w-full p-3.5 bg-white rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/20 transition-all min-h-[100px] resize-none"></textarea>
+                  </div>
+                  <button onclick="window.saveBotResponse()" class="w-full mt-2 bg-emerald-500 text-white font-black py-4 rounded-xl hover:bg-emerald-600 active:scale-95 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="w-5 h-5"></i> حفظ الرد في ذاكرة البوت
+                  </button>
+                </div>
+
+                <div class="mt-8 border-t border-slate-100 pt-6">
+                  <h4 class="font-black text-slate-700 text-sm mb-4">الردود المحفوظة مسبقاً</h4>
+                  <div id="admin-bot-responses-list" class="space-y-3">
+                    <!-- سيتم رندرة الردود هنا -->
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
+
+      <!-- Footer -->
+      <footer class="mt-12 border-t border-slate-200/60 pt-8 pb-10 px-4 sm:px-6 text-center w-full">
+        <div class="flex items-center justify-center gap-2 mb-4">
+            <img src="img/logo.png" alt="الشعار" onerror="this.src='img/default.png'" class="w-8 h-8 object-contain grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300" />
+            <span class="font-black text-slate-500 text-sm tracking-wide">مدينة أولاد الشيخ</span>
+        </div>
+        <p class="text-xs text-slate-400 font-semibold mb-6 max-w-sm mx-auto leading-relaxed">
+          متجرك الأول لتجارة الجملة بأسعار تنافسية وجودة مضمونة. نتطلع دائماً لخدمتكم.
+        </p>
+        <div class="flex justify-center gap-3 mb-6">
+            <a href="#" class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 text-slate-400 flex items-center justify-center hover:bg-[#1B4332] hover:text-white hover:border-[#1B4332] transition-colors shadow-sm">
+                <i data-lucide="facebook" class="w-4 h-4"></i>
+            </a>
+            <a href="#" class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 text-slate-400 flex items-center justify-center hover:bg-[#1B4332] hover:text-white hover:border-[#1B4332] transition-colors shadow-sm">
+                <i data-lucide="instagram" class="w-4 h-4"></i>
+            </a>
+            <a href="#" class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 text-slate-400 flex items-center justify-center hover:bg-[#1B4332] hover:text-white hover:border-[#1B4332] transition-colors shadow-sm">
+                <i data-lucide="phone" class="w-4 h-4"></i>
+            </a>
+        </div>
+        <div class="flex flex-col items-center justify-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+            <p class="text-[10px] text-slate-400 font-bold">جميع الحقوق محفوظة &copy; 2026</p>
+            <div class="flex items-center justify-center gap-1 bg-emerald-50/50 px-3 py-1.5 rounded-full border border-emerald-100/50">
+              <i data-lucide="code-2" class="w-3 h-3 text-emerald-600"></i>
+              <p class="text-[9px] text-emerald-700 font-black tracking-widest uppercase">
+                Developed by Rania
+              </p>
+            </div>
+        </div>
+      </footer>
     </main>
 
     <!-- Modal for Products -->
@@ -773,7 +903,10 @@
         class="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 space-y-5 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto no-scrollbar"
       >
         <div class="flex justify-between items-center mb-2">
-          <h3 id="modal-p-title" class="font-black text-xl flex items-center gap-2 text-slate-800">
+          <h3
+            id="modal-p-title"
+            class="font-black text-xl flex items-center gap-2 text-slate-800"
+          >
             <i data-lucide="package" class="w-6 h-6 text-[#1B4332]"></i> بيانات
             المنتج
           </h3>
@@ -781,15 +914,20 @@
             onclick="closeModals()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="x" class="w-5 h-5"></i>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
           </button>
         </div>
 
-        <div class="bg-emerald-50/50 p-5 rounded-[2rem] border-2 border-emerald-100/50 space-y-4">
+        <div
+          class="bg-emerald-50/50 p-5 rounded-[2rem] border-2 border-emerald-100/50 space-y-4"
+        >
           <!-- حقل الرابط - الآن هو العنصر الأول والأساسي -->
           <div class="space-y-2">
-            <label class="text-[11px] font-black text-emerald-700 flex items-center gap-2 px-1">
-              <i data-lucide="link-2" class="w-4 h-4"></i> الصق رابط الصورة من جوجل أو أي موقع
+            <label
+              class="text-[11px] font-black text-emerald-700 flex items-center gap-2 px-1"
+            >
+              <i data-lucide="link-2" class="w-4 h-4"></i> الصق رابط الصورة من
+              جوجل أو أي موقع
             </label>
             <div class="flex gap-2">
               <input
@@ -799,9 +937,9 @@
                 class="flex-1 p-3.5 bg-white rounded-2xl outline-none border border-emerald-200 focus:border-emerald-500 font-semibold text-slate-800 text-xs shadow-sm"
                 dir="ltr"
               />
-              <button 
-                type="button" 
-                onclick="window.applyProductImageUrl()" 
+              <button
+                type="button"
+                onclick="window.applyProductImageUrl()"
                 class="bg-emerald-600 text-white px-5 rounded-2xl text-xs font-black hover:bg-emerald-700 transition-all active:scale-95 shadow-md shadow-emerald-200 flex items-center gap-1"
               >
                 تطبيق
@@ -815,12 +953,32 @@
             onclick="document.getElementById('p-img-upload').click()"
             title="اضغط لتغيير الصورة يدوياً"
           >
-            <img id="p-img-preview" src="" class="absolute inset-0 w-full h-full object-contain hidden z-10 p-2" />
+            <img
+              id="p-img-preview"
+              src=""
+              class="absolute inset-0 w-full h-full object-contain hidden z-10 p-2"
+            />
             <div id="p-img-placeholder" class="z-0 text-center p-4">
-              <i data-lucide="image-plus" class="w-10 h-10 text-emerald-200 mx-auto mb-2 group-hover:text-emerald-400 transition-colors"></i>
-              <p class="text-[10px] font-bold text-slate-400">ستظهر المعاينة هنا<br><span class="text-emerald-500 font-black text-[9px]">أو اضغط لرفع ملف</span></p>
+              <i
+                data-lucide="image-plus"
+                class="w-10 h-10 text-emerald-200 mx-auto mb-2 group-hover:text-emerald-400 transition-colors"
+              ></i>
+              <p class="text-[10px] font-bold text-slate-400">
+                ستظهر المعاينة هنا<br /><span
+                  class="text-emerald-500 font-black text-[9px]"
+                  >أو اضغط لرفع ملف</span
+                >
+              </p>
             </div>
-            <input type="file" id="p-img-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'p-img-preview', 'p-img-base64', 600)" />
+            <input
+              type="file"
+              id="p-img-upload"
+              accept="image/*"
+              class="hidden"
+              onchange="
+                handleImageUpload(event, 'p-img-preview', 'p-img-base64', 600)
+              "
+            />
           </div>
 
           <input type="hidden" id="p-img-base64" />
@@ -850,7 +1008,9 @@
         </div>
 
         <div>
-          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">الكميه / الوحدة</label>
+          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
+            >الكميه / الوحدة</label
+          >
           <select
             id="p-unit"
             class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 font-bold text-sm text-slate-700"
@@ -874,21 +1034,36 @@
                 سعر الجملة (ج.م) <span class="text-red-400">*</span>
               </label>
               <div class="relative">
-                <input type="number" id="p-price" placeholder="50" step="0.01"
-                  class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 font-semibold text-slate-800" dir="ltr" />
+                <input
+                  type="number"
+                  id="p-price"
+                  placeholder="50"
+                  step="0.01"
+                  class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-[#1B4332] focus:ring-4 focus:ring-slate-50 font-semibold text-slate-800"
+                  dir="ltr"
+                />
               </div>
             </div>
             <div>
               <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">
-                سعر القطعة (ج.م) <span class="text-slate-400 font-normal">(اختياري)</span>
+                سعر القطعة (ج.م)
+                <span class="text-slate-400 font-normal">(اختياري)</span>
               </label>
               <div class="relative">
-                <input type="number" id="p-retail-price" placeholder="70" step="0.01"
-                  class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-400 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800" dir="ltr" />
+                <input
+                  type="number"
+                  id="p-retail-price"
+                  placeholder="70"
+                  step="0.01"
+                  class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-400 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800"
+                  dir="ltr"
+                />
               </div>
             </div>
           </div>
-          <p class="text-[10px] text-slate-400 mt-1">💡 سعر الجملة إلزامي. سعر القطعة اختياري إذا اختلف عن سعر الجملة.</p>
+          <p class="text-[10px] text-slate-400 mt-1">
+            💡 سعر الجملة إلزامي. سعر القطعة اختياري إذا اختلف عن سعر الجملة.
+          </p>
         </div>
 
         <div>
@@ -936,7 +1111,7 @@
             onclick="closeBulkImportModal()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="x" class="w-5 h-5"></i>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1045,7 +1220,7 @@
             onclick="closePriceUpdateModal()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="x" class="w-5 h-5"></i>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
           </button>
         </div>
         <div id="price-update-content">
@@ -1071,7 +1246,7 @@
             onclick="closeBulkPriceUpdateModal()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="x" class="w-5 h-5"></i>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1155,8 +1330,14 @@
       class="fixed inset-0 bg-slate-900/60 z-[2000] hidden items-center justify-center backdrop-blur-sm transition-opacity"
     >
       <div
-        class="bg-white w-full max-w-sm rounded-[2rem] p-6 space-y-5 shadow-2xl modal-enter"
+        class="bg-white w-full max-w-sm rounded-[2rem] p-6 space-y-5 shadow-2xl modal-enter relative"
       >
+        <button
+          onclick="closeLoginModal()"
+          class="absolute top-4 left-4 p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
         <div class="text-center">
           <div
             class="w-16 h-16 bg-slate-50 text-[#1B4332] rounded-[1rem] flex items-center justify-center mx-auto mb-4 shadow-inner"
@@ -1251,7 +1432,7 @@
             onclick="closeModals()"
             class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
           >
-            <i data-lucide="x" class="w-5 h-5"></i>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
           </button>
         </div>
 
@@ -1427,7 +1608,7 @@
             id="chatbot-avatar"
             class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden"
           >
-          <!-- <img src="img/download (1).png" alt=""> -->
+            <!-- <img src="img/download (1).png" alt=""> -->
           </div>
           <div>
             <h3 id="chatbot-name" class="font-bold text-sm">هدي</h3>
@@ -1498,6 +1679,6 @@
       >
     </button>
 
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

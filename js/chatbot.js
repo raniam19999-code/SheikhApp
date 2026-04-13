@@ -229,6 +229,17 @@ window.sendChatMessage = function () {
 function getSmartResponse(msg) {
   const rawMsg = msg.trim();
   msg = rawMsg.toLowerCase();
+  
+  // 0. التحقق من الردود المخصصة أولاً (الأولوية القصوى)
+  if (window.customChatbotResponses && window.customChatbotResponses.length > 0) {
+      for (const qa of window.customChatbotResponses) {
+          // إذا كانت أي من الكلمات المفتاحية موجودة في رسالة العميل
+          if (qa.keywords.some(k => msg.includes(k))) {
+              return qa.response;
+          }
+      }
+  }
+
   const products = window.products || [];
   const categories = window.categories || [];
   const contactNumbers = "01033743734 أو 01063748966";
@@ -371,7 +382,105 @@ document.addEventListener("click", function (e) {
 });
 
 document.addEventListener("keypress", function (e) {
-  if (e.key === "Enter" && document.activeElement.id === "chatbot-input") {
+  if (e.key === "Enter" && document.activeElement && document.activeElement.id === "chatbot-input") {
     window.sendChatMessage();
   }
 });
+
+// ==========================================
+// Admin Custom Bot Responses (Super Admin)
+// ==========================================
+
+window.customChatbotResponses = [];
+
+// جلب الردود المخصصة من قاعدة البيانات
+window.loadCustomBotResponses = async function() {
+    try {
+        const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "chatbotQA");
+        window.firestoreUtils.onSnapshot(ref, (snapshot) => {
+            window.customChatbotResponses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if(document.getElementById("admin-bot-responses-list") && !document.getElementById("admin-bot-list").classList.contains("hidden")) {
+                window.renderBotResponses();
+            }
+        });
+    } catch(e) {
+        console.error("Error loading custom bot responses:", e);
+    }
+};
+
+window.saveBotResponse = async function() {
+    const keywordsInput = document.getElementById("bot-train-keywords");
+    const responseInput = document.getElementById("bot-train-response");
+    
+    if(!keywordsInput || !responseInput) return;
+
+    const keywords = keywordsInput.value.split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+    const responseText = responseInput.value.trim();
+
+    if(keywords.length === 0 || !responseText) {
+        return window.showToast("يرجى إدخال كلمات مفتاحية والرد المناسب", "warning");
+    }
+
+    try {
+        const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "chatbotQA");
+        await window.firestoreUtils.addDoc(ref, {
+            keywords: keywords,
+            response: responseText,
+            createdAt: window.firestoreUtils.serverTimestamp()
+        });
+        
+        window.showToast("تم الحفظ بنجاح! البوت الآن أذكى 🧠", "success");
+        keywordsInput.value = "";
+        responseInput.value = "";
+    } catch(e) {
+        console.error(e);
+        window.showToast("حدث خطأ أثناء الحفظ", "error");
+    }
+};
+
+window.renderBotResponses = function() {
+    const list = document.getElementById("admin-bot-responses-list");
+    if(!list) return;
+
+    if(window.customChatbotResponses.length === 0) {
+        list.innerHTML = `<div class="text-center text-slate-400 font-bold p-4 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">لا توجد ردود مخصصة حتى الآن. درّبي مساحتكِ الخاصة!</div>`;
+        return;
+    }
+
+    list.innerHTML = window.customChatbotResponses.map(qa => `
+        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-start justify-between gap-4">
+            <div class="flex-1 space-y-2">
+                <div class="flex flex-wrap gap-1">
+                    ${qa.keywords.map(k => `<span class="bg-[#1B4332]/10 text-[#1B4332] px-2 py-0.5 rounded-lg text-xs font-black">#${k}</span>`).join("")}
+                </div>
+                <p class="text-sm text-slate-700 font-semibold bg-slate-50 p-3 rounded-xl border border-slate-100">${qa.response}</p>
+            </div>
+            <button onclick="window.deleteBotResponse('${qa.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+            </button>
+        </div>
+    `).join("");
+
+    if(window.lucide) window.lucide.createIcons();
+};
+
+window.deleteBotResponse = async function(id) {
+    if(!confirm("هل أنتِ متأكدة من حذف هذا الرد؟")) return;
+    try {
+        await window.firestoreUtils.deleteDoc(
+            window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "chatbotQA", id)
+        );
+        window.showToast("تم حذف الرد", "success");
+    } catch (e) {
+        window.showToast("خطأ في الحذف", "error");
+    }
+};
+
+// Initial load
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(window.loadCustomBotResponses, 1000);
+} else {
+    document.addEventListener("DOMContentLoaded", () => {
+        setTimeout(window.loadCustomBotResponses, 1000);
+    });
+}
