@@ -53,7 +53,7 @@ window.renderPriceBlock = function (product) {
             onclick="updateProductUnitSelection('${product.id}', '${unitKey}', ${prices[unitKey]}, event)"
           >
             <i data-lucide="${unitLabels[unitKey].icon}" class="w-3 h-3"></i>
-            ${unitLabels[unitKey].label}: ${prices[unitKey]} ج.م
+            ${unitLabels[unitKey].label}: ${Number(prices[unitKey] || 0).toFixed(2)} <span class="currency-shic">EGP</span>
           </button>
         `;
       }).join('')}
@@ -120,7 +120,7 @@ window.getPricingFieldsHTML = function (product) {
     </div>
 
     <div class="bg-slate-50 p-4 rounded-[2rem] border border-slate-100 mb-3">
-      <p class="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-wider">أسعار الوحدات (ج.م)</p>
+      <p class="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-wider">أسعار الوحدات (EGP)</p>
       <div class="grid grid-cols-2 gap-3">
         ${[
           { id: 'bag', label: 'كيس & شنطة', icon: 'package' },
@@ -274,6 +274,13 @@ window.injectPricingFields = function (product) {
       border-radius: 6px;
       letter-spacing: .5px;
       z-index: 5;
+    }
+    .currency-shic {
+      font-family: serif;
+      font-weight: 900;
+      font-style: italic;
+      margin-right: 2px;
+      color: #1B4332;
     }
   `;
   document.head.appendChild(style);

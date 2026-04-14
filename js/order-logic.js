@@ -66,6 +66,21 @@ export function loadUserOrders() {
   );
 
   return window.firestoreUtils.onSnapshot(q, (snap) => {
+    snap.docChanges().forEach((change) => {
+      if (change.type === "modified") {
+        const order = change.doc.data();
+        const statusMap = {
+          processing: 'جاري التجهيز',
+          shipped: 'خرج للتوصيل',
+          delivered: 'تم التسليم',
+          cancelled: 'ملغي'
+        };
+        if (statusMap[order.status]) {
+           window.showNotification(`طلبك #${order.orderNumber} الآن: ${statusMap[order.status]}`);
+        }
+      }
+    });
+
     const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderOrdersList(orders, "orders-list");
   });
@@ -128,7 +143,7 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
         <td class="py-2 font-mono text-slate-400">${displaySku || '—'}</td>
         <td class="py-2 pr-2 font-bold text-slate-700">${item.productName || item.name}</td>
         <td class="py-2 text-center font-black text-emerald-700">${item.orderedQuantity}</td>
-        <td class="py-2 text-left font-bold text-slate-600">${item.basePrice || item.price} ج.م</td>
+        <td class="py-2 text-left font-bold text-slate-600">${Number(item.basePrice || item.price || 0).toFixed(2)} <span class="currency-shic text-[8px] opacity-70">EGP</span></td>
       </tr>
     `}).join("");
 
@@ -152,11 +167,11 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
             <div class="flex flex-col gap-0.5">
                 <p class="text-[10px] text-emerald-600 font-black flex items-center gap-1">
                     <i data-lucide="calendar" class="w-3 h-3"></i> 
-                    التاريخ: ${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'جاري التحميل...'}
+                    التاريخ: ${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' }) : new Date().toLocaleDateString('ar-EG')}
                 </p>
                 <p class="text-[10px] text-slate-400 font-bold flex items-center gap-1">
                     <i data-lucide="clock" class="w-3 h-3"></i> 
-                    الوقت: ${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    الوقت: ${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date().toLocaleTimeString('ar-EG')}
                 </p>
             </div>
           </div>
@@ -209,16 +224,22 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
 
         <div class="flex justify-between items-center pt-2 px-2">
            <span class="text-[11px] font-bold text-slate-400">صافي الفاتورة:</span>
-           <span class="text-lg font-black text-emerald-900 underline decoration-emerald-500 decoration-2 underline-offset-4">${order.totalAmount} ج.م</span>
+           <span class="text-lg font-black text-emerald-900 underline decoration-emerald-500 decoration-2 underline-offset-4">${Number(order.totalAmount || 0).toFixed(2)} <span class="currency-shic">EGP</span></span>
         </div>
 
-        <!-- ختم الفاتورة للطباعة -->
-        <div class="hidden print:block pt-10 text-center">
-            <p class="text-[10px] text-slate-400 font-bold border-t border-dashed pt-4">شكراً لتعاملكم مع أولاد الشيخ - مدينة أولاد الشيخ</p>
+        </style>
+        <!-- ختم الفاتورة للطباعة (يظهر فقط عند الطباعة) -->
+        <div class="hidden print:block pt-10 text-center text-slate-500 text-xs">
+            <style>@page { size: auto; margin: 0mm; }</style>
+            <p>شكراً لتسوقكم معنا!</p>
         </div>
 
-        ${isAdmin ? `
-          <div class="flex gap-2 pt-3 border-t border-dashed print:hidden">
+        <div class="flex gap-2 pt-3 border-t border-dashed print:hidden flex-wrap">
+          <button onclick="window.printInvoice('invoice-${order.id}')" class="flex-1 p-2.5 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-all active:scale-95 flex items-center justify-center gap-2" title="طباعة الفاتورة أو حفظ كـ PDF">
+             <i data-lucide="printer" class="w-4 h-4"></i> طباعة الفاتورة
+          </button>
+          
+          ${isAdmin ? `
             <select onchange="updateOrderStatus('${order.id}', this.value)" class="flex-1 bg-slate-50 text-[10px] font-bold p-2.5 rounded-xl outline-none border border-slate-100 transition-colors focus:border-emerald-300">
               <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>⏳ مراجعة</option>
               <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>⚙️ تجهيز</option>
@@ -226,14 +247,11 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
               <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>✅ تسليم</option>
               <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>❌ إلغاء</option>
             </select>
-            <button onclick="window.printInvoice('invoice-${order.id}')" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all active:scale-90" title="طباعة الفاتورة">
-               <i data-lucide="printer" class="w-4 h-4"></i>
-            </button>
-            <a href="tel:${order.customerPhone}" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all active:scale-90" title="اتصال">
+            <a href="tel:${order.customerPhone}" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-90 flex items-center justify-center" title="اتصال بالعميل">
                <i data-lucide="phone" class="w-4 h-4"></i>
             </a>
-          </div>
-        ` : ''}
+          ` : ''}
+        </div>
       </div>
     `;
   }).join("");

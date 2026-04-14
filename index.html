@@ -404,7 +404,7 @@
         </div>
 
         <!-- Products Grid -->
-        <div class="px-4 sm:px-5">
+        <div id="products-wrapper" class="px-4 sm:px-5">
           <div class="flex items-center justify-between mb-4 sm:mb-5">
             <h3
               id="current-category-title"
@@ -1201,7 +1201,7 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">
-                سعر الجملة (ج.م) <span class="text-red-400">*</span>
+                EGP <span class="text-red-400">*</span>
               </label>
               <div class="relative">
                 <input
@@ -1217,7 +1217,7 @@
             </div>
             <div>
               <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">
-                سعر القطعة (ج.م)
+                سعر القطعة (EGP)
                 <span class="text-slate-400 font-normal">(اختياري)</span>
               </label>
               <div class="relative">
@@ -1284,6 +1284,12 @@
           >
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
+        </div>
+        <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mb-2">
+          <label class="text-[11px] font-black text-blue-700 mb-1.5 block">1. اختر القسم الفرعي المستهدف</label>
+          <select id="bulk-import-cat" class="w-full p-4 bg-white rounded-2xl outline-none border border-blue-200 focus:border-blue-500 font-bold text-sm text-slate-700 shadow-sm">
+            <option value="">-- تحميل في قسم عام --</option>
+          </select>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

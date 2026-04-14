@@ -4,38 +4,38 @@
 ======================================================== */
 
 export async function initAuth() {
-  // تفعيل بقاء تسجيل الدخول حتى عند إغلاق المتصفح (المتطلب الأساسي ليشعر المستخدم أنه تطبيق حقيقي)
+  // تفعيل بقاء تسجيل الدخول حتى عند إغلاق المتصفح
   try {
     const { setPersistence, browserLocalPersistence } = window.authUtils;
     if (setPersistence && browserLocalPersistence) {
         await setPersistence(window.auth, browserLocalPersistence);
-        console.log("Auth persistence set to LOCAL");
     }
   } catch(e) {
-    console.warn("Failed to set auth persistence:", e);
+    console.warn("Auth persistence error:", e);
   }
 
   if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
-    await window.authUtils.signInWithCustomToken(
-      window.auth,
-      __initial_auth_token,
-    );
-  } else {
-    // Only attempt anonymous sign-in if no user is currently restored from persistence
-    if (!window.auth.currentUser) {
-      try {
-        await window.authUtils.signInAnonymously(window.auth);
-      } catch (e) {
-        if (e.code === "auth/admin-restricted-operation") {
-          window.showToast(
-            "خدمة تسجيل الدخول معطلة من لوحة التحكم (Firebase Console). يرجى مراجعة الإعدادات.",
-            "error",
-            8000,
-          );
-        }
-        console.warn("Auth Info:", e.code, e.message);
-      }
+    try {
+      await window.authUtils.signInWithCustomToken(window.auth, __initial_auth_token);
+    } catch(e) {
+      console.error("Token login failed:", e);
     }
+  } else {
+    // ننتظر قليلاً للتأكد من استعادة الجلسة من التخزين المحلي قبل محاولة الدخول كمجهول
+    setTimeout(async () => {
+      if (!window.auth.currentUser) {
+        try {
+          await window.authUtils.signInAnonymously(window.auth);
+        } catch (e) {
+          // تسجيل الخطأ في الكونسول مع توضيح للمطور
+          if (e.code === "auth/admin-restricted-operation") {
+            console.warn("Firebase Auth Notice: Anonymous login is restricted. Please enable 'Anonymous' in Firebase Console -> Auth -> Sign-in method.");
+          } else {
+            console.error("Anonymous auth error:", e.code, e.message);
+          }
+        }
+      }
+    }, 1500);
   }
 }
 
@@ -159,7 +159,8 @@ export async function handleAuth() {
   } catch (e) {
     let errorMsg = "خطأ: " + e.code;
     if (e.code === "auth/admin-restricted-operation") {
-      errorMsg = "التسجيل موقوف، يجب تفعيل (Enable create sign-up) من إعدادات Firebase.";
+      errorMsg = "خدمة التسجيل معطلة حالياً. (تأكد من تفعيل Anonymous و Sign-up من إعدادات Firebase).";
+      console.error("Firebase Auth Error: 'admin-restricted-operation' usually means you need to enable 'Anonymous' or 'Email/Password' providers and 'Enable create (sign-up)' in the Firebase Console.");
     } else if (e.code === "auth/email-already-in-use") {
       errorMsg = "البريد الإلكتروني مسجل بالفعل.";
     } else if (e.code === "auth/weak-password") {
@@ -308,21 +309,31 @@ export async function promoteUserToAdmin() {
   if (!email)
     return window.showToast("يرجى إدخال البريد الإلكتروني", "warning");
 
-  try {
-    const q = window.firestoreUtils.query(
-      window.firestoreUtils.collection(
-        window.db,
-        "artifacts",
-        window.appId,
-        "users",
-      ),
-      window.firestoreUtils.where("email", "==", email.toLowerCase()),
-    );
-    const snap = await window.firestoreUtils.getDocs(q);
-    if (snap.empty)
-      return window.showToast("لم يتم العثور على مستخدم بهذا البريد", "error");
+  const usersColl = window.firestoreUtils.collection(
+    window.db,
+    "artifacts",
+    window.appId,
+    "users"
+  );
 
-    await window.firestoreUtils.updateDoc(snap.docs[0].ref, { role: "admin" });
+  try {
+    const q = window.firestoreUtils.query(usersColl, window.firestoreUtils.where("email", "==", email.toLowerCase()));
+    const snap = await window.firestoreUtils.getDocs(q);
+    if (snap.empty) {
+      // محاولة البحث بدون lowerCase كخيار أخير
+      const q2 = window.firestoreUtils.query(usersColl, window.firestoreUtils.where("email", "==", email));
+      const snap2 = await window.firestoreUtils.getDocs(q2);
+      if (snap2.empty) return window.showToast("لم يتم العثور على مستخدم بهذا البريد", "error");
+      var userDoc = snap2.docs[0];
+    } else {
+      var userDoc = snap.docs[0];
+    }
+
+    await window.firestoreUtils.updateDoc(userDoc.ref, { 
+      role: "admin",
+      promotedAt: window.firestoreUtils.serverTimestamp()
+    });
+    
     window.showToast("تمت ترقية المستخدم لمدير بنجاح", "success");
     document.getElementById("add-admin-modal").classList.add("hidden");
   } catch (e) {

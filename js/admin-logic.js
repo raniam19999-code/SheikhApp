@@ -4,22 +4,21 @@
 
 // دالة لتنظيف النصوص العربية للمطابقة الدقيقة (تجاهل الهمزات والتاء المربوطة والمسافات)
 function normalizeArabic(text) {
-  if (!text) return "";
-  return String(text)
-    .trim()
-    .toLowerCase()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/\s+/g, " "); // تحويل المسافات المتعددة لمسافة واحدة
+  if (typeof window.normalizeArabic === "function") return window.normalizeArabic(text);
+  return String(text || "").trim().toLowerCase();
 }
 
 // دالة ذكية للبحث عن قيمة داخل الكائن (Row) بناءً على جزء من اسم العمود
 function findValByParts(obj, parts) {
   const keys = Object.keys(obj);
-  // البحث عن مفتاح يحتوي على الكلمة المطلوبة
+  // البحث أولاً عن تطابق تام، ثم تطابق جزئي
   for (const part of parts) {
-    const foundKey = keys.find((k) => k.trim().includes(part));
+    const foundKey = keys.find((k) => {
+      const cleanKey = k.trim().toLowerCase();
+      const cleanPart = part.toLowerCase();
+      return cleanKey === cleanPart || cleanKey.includes(cleanPart);
+    });
+
     if (
       foundKey &&
       obj[foundKey] !== undefined &&
@@ -29,7 +28,7 @@ function findValByParts(obj, parts) {
     }
   }
   // إذا لم يجد، يبحث في الأعمدة الفارغة (__EMPTY) إذا كانت تحتوي على بيانات ربما بسبب ترحيل الأعمدة
-  const emptyKeys = keys.filter((k) => k.startsWith("__EMPTY")).reverse();
+  const emptyKeys = keys.filter((k) => k.includes("EMPTY")).reverse();
   if (parts.includes("كود") || parts.includes("SKU"))
     return obj[emptyKeys[0]] || ""; // الكود غالباً في آخر الأعمدة المكتوبة
   return "";
@@ -39,7 +38,12 @@ function findValByParts(obj, parts) {
 function parseExcelNumber(val) {
   if (typeof val === "number") return val;
   if (!val) return 0;
-  const cleaned = String(val).replace(/,/g, "").trim();
+  
+  // إزالة العملات (ج.م، EGP، $)، الفواصل، والمسافات
+  let cleaned = String(val)
+    .replace(/[^\d.-]/g, '')
+    .trim();
+    
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }
@@ -229,6 +233,11 @@ export function renderAdminProducts() {
   const list = document.getElementById("admin-p-list");
   if (!list) return;
 
+  const productsCount = window.products ? window.products.length : 0;
+  const categoriesCount = window.categories ? window.categories.length : 0;
+
+  const addBtn = `<button onclick="openProductModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all">+ إضافة منتج جديد</button>`;
+
   const products = window.products || [];
   let html = products
     .map(
@@ -254,11 +263,22 @@ export function renderAdminProducts() {
     </div>
   `,
     )
-    .join("");
+    .join(""); // Moved this line up
 
-  // زر إضافة منتج في البداية
-  const addBtn = `<button onclick="openProductModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all">+ إضافة منتج جديد</button>`;
-  list.innerHTML = addBtn + html;
+  list.innerHTML = `
+    <div class="col-span-full bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <i data-lucide="package" class="w-6 h-6 text-emerald-600"></i>
+        <p class="font-black text-slate-800 text-sm">إجمالي المنتجات: <span class="text-emerald-600">${productsCount}</span></p>
+      </div>
+      <div class="flex items-center gap-3">
+        <i data-lucide="folder" class="w-6 h-6 text-blue-600"></i>
+        <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span class="text-blue-600">${categoriesCount}</span></p>
+      </div>
+    </div>
+    ${addBtn}
+    ${html}
+  `;
   if (window.lucide) lucide.createIcons();
 }
 
@@ -424,10 +444,10 @@ export async function handleBulkFileUpload(event) {
 
   if (rows.length === 0) return alert("الملف فارغ!");
 
-  // معاينة التغييرات قبل الحفظ (يمكنك تفعيل مودال هنا)
-  if (
-    confirm(`تم العثور على ${rows.length} صنف. هل تريد البدء في تحديث الموقع؟`)
-  ) {
+  // حفظ البيانات في المتغير العالمي ليتمكن نظام "الإضافة السريعة" من الوصول إليها
+  window.lastUploadedRows = rows;
+
+  if (confirm(`تم العثور على ${rows.length} صنف في الملف. هل تريد معالجة البيانات وتحديث المتجر الآن؟`)) {
     await processBulkProducts(rows);
   }
 }
@@ -446,34 +466,47 @@ async function processBulkProducts(rows) {
 
   let updated = 0;
   let created = 0;
+  let failed = 0;
+  let skipped = 0;
+  let errorDetails = [];
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     try {
       // تنظيف رؤوس الأعمدة من المسافات المخفية
       const r = {};
       Object.keys(row).forEach((k) => (r[k.trim()] = row[k]));
 
       // البحث بذكاء عن الأعمدة المطلوبة
-      const sku = String(findValByParts(r, ["كود", "SKU", "الكود"])).trim();
-      const name = String(findValByParts(r, ["صنف", "اسم", "البيان", "Name"])).trim();
-      if (!name) continue;
+      const rawSku = findValByParts(r, ["كود", "SKU", "الكود", "الرمز", "code"]);
+      const sku = rawSku ? String(rawSku).trim() : "";
+      
+      const rawName = findValByParts(r, ["صنف", "اسم", "البيان", "Name", "المنتج"]);
+      const name = rawName ? String(rawName).trim() : "";
 
-      const wholesalePrice = parseExcelNumber(findValByParts(r, ["جملة", "Wholesale", "سعر"]));
-      const bundlePrice = parseExcelNumber(findValByParts(r, ["شرنك", "Bundle", "سعر الشرنك"]));
-      const cartonPrice = parseExcelNumber(findValByParts(r, ["كرتونة", "Carton", "سعر الكرتونة"]));
+      if (!name) {
+        failed++;
+        errorDetails.push(`الصف ${i + 2}: اسم المنتج مفقود`);
+        continue;
+      }
 
-      const normName = normalizeArabic(name);
-      let existing = window.products.find(
-        (p) =>
-          (sku &&
-            p.sku &&
-            String(p.sku).trim().toLowerCase() === sku.toLowerCase()) ||
-          (p.name && normalizeArabic(p.name) === normName),
-      );
-
-      const genericPrice = parseExcelNumber(r.Price || r["السعر"] || r["سعر"] || r["سعر البيع"] || 0);
+      const genericPrice = parseExcelNumber(findValByParts(r, ["سعر", "Price", "جملة", "بيع"]));
       const piecePrice = parseExcelNumber(r["سعر الكيس"] || r["سعر كيس"] || 0) || genericPrice;
       const totalStock = parseExcelNumber(r.Stock || r["المخزون"] || r["مخزون"] || r.Quantity || r["الكمية"] || r["الكميه"] || 0);
+
+      if (isNaN(piecePrice)) {
+        failed++;
+        errorDetails.push(`الصف ${i + 2}: سعر غير صالح (${name})`);
+        continue;
+      }
+
+      const normName = normalizeArabic(name);
+
+      let existing = window.products.find((p) => {
+        const matchSku = sku && p.sku && String(p.sku).trim().toLowerCase() === sku.toLowerCase();
+        const matchName = p.name && normalizeArabic(p.name) === normName;
+        return matchSku || matchName;
+      });
 
       const productData = {
         name: name,
@@ -481,18 +514,14 @@ async function processBulkProducts(rows) {
         price: piecePrice,
         prices: {
           bag: piecePrice,
-          tin: parseExcelNumber(r[" الكيس سعر "] || r["سعر الكيس"] || 0),
           box: parseExcelNumber(r["سعر العلبة"] || r["سعر علبة"] || 0),
           carton: parseExcelNumber(r["سعر الكرتونة"] || r["سعر كرتونة"] || 0),
           shrink: parseExcelNumber(r["سعر الشرنك"] || r["سعر شرنك"] || 0),
           bucket: parseExcelNumber(r["سعر الجردل"] || r["سعر جردل"] || 0),
           tin: parseExcelNumber(r["سعر الصفيحة"] || r["سعر صفيحة"] || 0),
-          
-          
         },
         availableUnits: {
           bag: !!piecePrice,
-          tin: parseExcelNumber(r[" الكيس سعر "] || r["سعر الكيس"] || 0),
           box: !!(r["سعر العلبة"] || r["سعر علبة"]),
           carton: !!(r["سعر الكرتونة"] || r["سعر كرتونة"]),
           shrink: !!(r["سعر الشرنك"] || r["سعر شرنك"]),
@@ -501,7 +530,9 @@ async function processBulkProducts(rows) {
         },
         quantity: totalStock,
         unitMeasurement: String(r.Unit || r["التعبئة"] || r["حجم"] || r["وزن"] || r["كمية الوحدة"] || "").trim(),
-        category: String(r.Category || r["القسم"] || r["اسم المجموعه"] || r["المجموعة"] || r["التصنيف"] || "عام").trim(),
+        category: r.Category || String(findValByParts(r, ["القسم", "Category", "المجموعة", "التصنيف"]) || "عام").trim(),
+        categoryId: r.categoryId || "",
+        availableQuantities: r.AvailableQuantities || "",
         minThreshold: Number(r.MinStock || r["حد النواقص"] || 5),
         updatedAt: window.firestoreUtils.serverTimestamp(),
         status: deriveStatus(
@@ -511,31 +542,34 @@ async function processBulkProducts(rows) {
       };
 
       if (existing) {
-        const docRef = window.firestoreUtils.doc(productsRef, existing.id);
-        batch.update(docRef, productData);
-        updated++;
+        // بناءً على طلبك: تجاهل العناصر الموجودة مسبقاً وتخطيها
+        skipped++;
+        continue;
       } else {
         const newDocRef = window.firestoreUtils.doc(productsRef);
         batch.set(newDocRef, productData);
         created++;
       }
 
-      // Firestore batch limit is 500 operations
       if ((updated + created) % 500 === 0) {
         await batch.commit();
         batch = window.firestoreUtils.writeBatch(window.db);
       }
     } catch (err) {
-      console.error("Error processing row:", row, err);
-      continue; // تخطي السطر الذي يحتوي على خطأ والاستمرار في الباقي
+      failed++;
+      errorDetails.push(`الصف ${i + 2}: خطأ فني (${err.message})`);
+      continue;
     }
   }
 
   await batch.commit();
-  window.showToast(
-    `تم التحديث بنجاح: ${updated} تعديل، ${created} إضافة جديدة`,
-    "success",
-  );
+  
+  let reportMsg = `اكتملت العملية: ${created} إضافة جديدة، وتم تخطي ${skipped} منتج متواجد مسبقاً.`;
+  if (failed > 0) {
+    reportMsg += ` وفشل استيراد ${failed} صف.`;
+    console.table(errorDetails);
+  }
+  window.showToast(reportMsg, failed > 0 ? "warning" : "success", 6000);
 }
 
 function deriveStatus(qty, min) {
@@ -560,7 +594,8 @@ export function closeBulkImportModal() {
     if (modal) {
         modal.classList.add("hidden");
         modal.classList.remove("flex");
-        window.lastUploadedRows = null;
+        // تم إزالة تصفير window.lastUploadedRows للحفاظ على البيانات المرفوعة
+        // حتى لو أغلق المدمن النافذة بالخطأ أو أراد إضافة قسم آخر من نفس الملف
     }
 }
 window.closeBulkImportModal = closeBulkImportModal;
@@ -571,6 +606,8 @@ export async function saveBulkProducts() {
     const sheetDataText = document.getElementById("bulk-sheet-data").value.trim();
     const unit = document.getElementById("bulk-unit").value;
     const quantities = document.getElementById("bulk-quantities").value;
+    const targetCatId = document.getElementById("bulk-import-cat").value;
+    const targetCatObj = window.categories.find(c => c.id === targetCatId);
     
     let rows = window.lastUploadedRows || [];
 
@@ -584,21 +621,26 @@ export async function saveBulkProducts() {
     }
 
     if (rows.length === 0) return window.showToast("يرجى رفع ملف أو لصق بيانات أولاً", "warning");
-    if (keywords.length === 0) return window.showToast("يرجى إدخال كلمات مفتاحية للفلترة", "warning");
 
-    // تصفية الصفوف بناءً على الكلمات المفتاحية
-    const filteredRows = rows.filter(row => {
-        // تنظيف اسم المنتج وتوحيد الحروف
-        const nameNormalized = normalizeArabic(findValByParts(row, ["صنف", "اسم", "البيان", "Name"]));
-        // تقسيم الاسم إلى كلمات بناءً على المسافات وعلامات الترقيم العربية والأجنبية
-        const words = nameNormalized.split(/[\s،,._/-]+/);
-        // التأكد من أن الكلمة المفتاحية موجودة ككلمة كاملة مستقلة
-        return keywords.some(k => words.includes(k));
-    });
+    // تصفية الصفوف بناءً على الكلمات المفتاحية (اختياري)
+    let filteredRows = rows;
+    if (keywords.length > 0) {
+        filteredRows = rows.filter(row => {
+            // تنظيف مفاتيح الصف (Headers) لضمان العثور على الأعمدة حتى لو بها مسافات زائدة في ملف الإكسل
+            const r = {};
+            Object.keys(row).forEach(k => r[k.trim()] = row[k]);
+            
+            const nameNormalized = normalizeArabic(findValByParts(r, ["صنف", "المنتج", "اسم", "البيان", "Name"]));
+            const skuNormalized = normalizeArabic(findValByParts(r, ["كود", "SKU", "الرمز", "الباركود", "code"]));
+            
+            // البحث في الاسم أو الكود لضمان مرونة أكبر في الاستيراد السريع
+            return keywords.some(k => nameNormalized.includes(k) || skuNormalized.includes(k));
+        });
+        if (filteredRows.length === 0) return window.showToast("لم يتم العثور على أصناف مطابقة للكلمات المفتاحية", "warning");
+    }
 
-    if (filteredRows.length === 0) return window.showToast("لم يتم العثور على أصناف مطابقة للكلمات المفتاحية", "warning");
-
-    if (confirm(`تم العثور على ${filteredRows.length} صنف مطابق. هل تريد إضافتهم الآن؟`)) {
+    const countText = keywords.length > 0 ? `مطابق للفلترة` : `إجمالي`;
+    if (confirm(`تم العثور على ${filteredRows.length} صنف ${countText}. هل تريد إضافتهم/تحديثهم الآن؟`)) {
         window.showNotification("جاري معالجة الأصناف المختارة...");
         
         // تعديل البيانات لتشمل الوحدة والكميات المحددة في المودال قبل الإرسال
@@ -610,7 +652,7 @@ export async function saveBulkProducts() {
             const sku = String(findValByParts(rowCleaned, ["كود", "SKU", "الكود"])).trim();
             const name = String(findValByParts(rowCleaned, ["صنف", "اسم", "البيان", "Name"])).trim();
             const price = parseExcelNumber(findValByParts(rowCleaned, ["سعر", "Price", "جملة"]));
-            const qty = parseExcelNumber(findValByParts(rowCleaned, ["كمية", "Stock", "الكمية", "مخزون"]));
+            const qty = parseExcelNumber(findValByParts(rowCleaned, ["كمية", "Stock", "الكمية", "مخزون"])) || 100;
 
             return {
                 ...rowCleaned,
@@ -619,6 +661,8 @@ export async function saveBulkProducts() {
                 "Price": price,
                 "Quantity": qty,
                 "Unit": unit,
+                "Category": targetCatObj ? targetCatObj.name : "عام",
+                "categoryId": targetCatId || "",
                 "MinStock": 5,
                 "AvailableQuantities": quantities 
             };
@@ -687,8 +731,8 @@ export function renderInventoryAudit() {
         </td>
         <td class="p-4">
           <div class="flex flex-col gap-1">
-            <span class="text-[10px] font-bold text-emerald-700">كيس: ${p.prices?.bag || 0} ج.م</span>
-            <span class="text-[10px] font-bold text-blue-700">كرتونة: ${p.prices?.carton || 0} ج.م</span>
+            <span class="text-[10px] font-bold text-emerald-700">كيس: ${Number(p.prices?.bag || 0).toFixed(2)} <span class="currency-shic">EGP</span></span>
+            <span class="text-[10px] font-bold text-blue-700">كرتونة: ${Number(p.prices?.carton || 0).toFixed(2)} <span class="currency-shic">EGP</span></span>
           </div>
         </td>
         <td class="p-4 font-mono font-black text-sm">${qty}</td>
@@ -731,18 +775,30 @@ export function closeBulkPriceUpdateModal() {
 window.closeBulkPriceUpdateModal = closeBulkPriceUpdateModal;
 
 export function updateCategorySelects() {
-  const selects = ["p-cat", "bulk-price-cat"];
-  const options = (window.categories || [])
-    .map((c) => `<option value="${c.id}">${c.name}</option>`)
-    .join("");
+  const selects = ["p-cat", "bulk-price-cat", "bulk-import-cat"];
+  
   selects.forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
-      const defaultText =
-        id === "p-cat"
-          ? "-- القسم التابع له--"
-          : "-- كل الأقسام (تحديث شامل) --";
-      el.innerHTML = `<option value="">${defaultText}</option>${options}`;
+      let cats = window.categories || [];
+      // فلترة الأقسام لإظهار الأقسام الفرعية فقط عند إضافة منتج أو استيراد لضمان دقة البيانات
+      if (id === "p-cat" || id === "bulk-import-cat") {
+        cats = cats.filter(c => c.parentId);
+      }
+
+      const options = cats.map((c) => {
+        const parent = (window.categories || []).find(p => p.id === c.parentId);
+        // عرض اسم القسم الرئيسي بجانب الفرعي لسهولة التمييز (مثال: بقالة » جبن)
+        const displayName = parent ? `${parent.name} » ${c.name}` : c.name;
+        return `<option value="${c.id}">${displayName}</option>`;
+      }).join("");
+
+      let defaultText = "-- القسم التابع له--";
+      if (id === "bulk-price-cat") defaultText = "-- كل الأقسام (تحديث شامل) --";
+      if (id === "bulk-import-cat") defaultText = "-- اختيار قسم فرعي --";
+
+      const extraOption = id === "bulk-price-cat" ? '<option value="none">-- منتجات بدون قسم --</option>' : '';
+      el.innerHTML = `<option value="">${defaultText}</option>${extraOption}${options}`;
     }
   });
 }
@@ -758,28 +814,25 @@ export async function handleBulkPriceFileUpload(event) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet);
 
-    if (rows.length === 0) return window.showToast("الملف فارغ", "error");
+    if (!rows || rows.length === 0) return window.showToast("الملف فارغ أو غير مدعوم", "error");
 
     const textLines = rows
       .map((row) => {
-        // تنظيف الكائن Row
-        const r = row;
+        const r = {};
+        Object.keys(row).forEach((k) => (r[k.trim()] = row[k]));
 
-        // استخدام البحث الذكي عن الأعمدة
-        const sku = String(findValByParts(r, ["كود", "SKU", "طلبية"])).trim();
-        const name = String(
-          findValByParts(r, ["صنف", "اسم", "البيان", "Name"]),
-        ).trim();
+        // توحيد مسميات الأعمدة مع عملية الاستيراد الأساسية لضمان المطابقة
+        const sku = String(findValByParts(r, ["كود", "SKU", "الرمز", "الباركود", "ID"])).trim();
+        const name = String(findValByParts(r, ["صنف", "اسم", "البيان", "المنتج", "Item"])).trim();
 
-        const rawPrice = findValByParts(r, ["سعر", "Price", "جملة"]);
-        const price =
-          typeof rawPrice === "string" ? rawPrice.replace(/,/g, "") : rawPrice;
-        const cat = String(
-          findValByParts(r, ["قسم", "مجموعة", "Category"]),
-        ).trim();
+        const rawPrice = findValByParts(r, ["سعر", "جمله", "Price", "Wholesale"]);
+        const price = parseExcelNumber(rawPrice);
+        const cat = String(findValByParts(r, ["القسم", "Category", "المجموعة", "التصنيف"])).trim();
 
-        const identifier = sku || name;
-        if (!identifier || price === "") return null;
+        const identifier = sku && sku !== "undefined" ? sku : name;
+        if (!identifier || !price) return null;
+        
+        // استخدام الفاصل | لضمان عدم التداخل مع الفواصل العادية في الأسماء
         return `${identifier}|${price}${cat ? "|" + cat : ""}`;
       })
       .filter(Boolean);
@@ -801,7 +854,7 @@ export async function saveBulkPriceUpdates() {
 
   const products = window.products || [];
   let targetCategoryName = "";
-  if (catId) {
+  if (catId && catId !== "none") {
     const cat = window.categories.find((c) => c.id === catId);
     if (cat) targetCategoryName = normalizeArabic(cat.name);
   }
@@ -825,36 +878,59 @@ export async function saveBulkPriceUpdates() {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
 
-      const parts = line
-        .split(/[\t|,]|\s{2,}/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      // التقسيم بناءً على الفواصل المعروفة فقط (تجنب المسافات المزدوجة لأنها قد تكون جزءاً من اسم المنتج)
+      const parts = trimmedLine.split(/[|,\t]/).map((s) => s.trim()).filter(Boolean);
       if (parts.length < 2) continue;
 
-      const identifier = normalizeArabic(parts[0]);
-      const rawPrice = String(parts[1]).replace(/[^0-9.]/g, ""); // تنظيف السعر من أي رموز غير رقمية
-      const priceVal = parseFloat(rawPrice);
-      if (isNaN(priceVal) || priceVal <= 0) continue; // تجاهل الأسعار الصفرية أو الخاطئة
+      let identifier, newName = null, newSku = null, priceVal;
+      
+      // محاولة ذكية لتحديد مكان السعر (في العمود الثاني أو الثالث)
+      const p1 = parseExcelNumber(parts[1]);
+      const p2 = parts.length >= 3 ? parseExcelNumber(parts[2]) : NaN;
+
+      if (parts.length >= 3 && !isNaN(p2) && p2 > 0) {
+          // تنسيق: كود | اسم | سعر
+          identifier = normalizeArabic(parts[0]);
+          newSku = parts[0];
+          newName = parts[1];
+          priceVal = p2;
+      } else {
+          // تنسيق: كود (أو اسم) | سعر | (أي بيانات إضافية)
+          identifier = normalizeArabic(parts[0]);
+          priceVal = p1;
+      }
+
+      if (isNaN(priceVal)) continue; 
 
       // البحث عن المنتج بالكود أو الاسم
       const p = products.find(
         (x) =>
           (x.sku && normalizeArabic(x.sku) === identifier) ||
-          (x.name && normalizeArabic(x.name) === identifier),
+          (x.name && normalizeArabic(x.name) === identifier) ||
+          (newSku && x.sku && normalizeArabic(x.sku) === normalizeArabic(newSku)) ||
+          (newName && x.name && normalizeArabic(x.name) === normalizeArabic(newName))
       );
 
       if (p) {
         const pCat = normalizeArabic(p.category || "");
+        
+        // تصفية للمنتجات بدون قسم فقط إذا تم اختيار ذلك
+        if (catId === "none" && pCat !== "" && pCat !== "عام") continue;
         if (targetCategoryName && pCat !== targetCategoryName) continue;
 
         const finalPrice =
           percentage !== 0 ? priceVal * (1 + percentage / 100) : priceVal;
         const updatedPrice = Number(finalPrice.toFixed(2));
 
-        batch.update(window.firestoreUtils.doc(productsRef, p.id), {
-          price: Number(updatedPrice.toFixed(2)),
-          "prices.bag": Number(updatedPrice.toFixed(2)), // تحديث سعر الكيس في النظام الجديد أيضاً
-        });
+        let updateData = {
+          price: updatedPrice,
+          "prices.bag": updatedPrice,
+        };
+        // التأكد من التطابق التام وتحديث الكود والاسم عند توفيرهم في الشيت
+        if(newName) updateData.name = newName;
+        if(newSku) updateData.sku = newSku;
+
+        batch.update(window.firestoreUtils.doc(productsRef, p.id), updateData);
         updateCount++;
 
         if (updateCount % 500 === 0) {
@@ -865,6 +941,32 @@ export async function saveBulkPriceUpdates() {
         notFoundCount++;
       }
     }
+  } 
+  // تحديث شامل بنسبة مئوية في حال لم يتم لصق نص (تحديث كامل لقاعدة البيانات المفلترة)
+  else if (percentage !== 0) {
+    for (const p of products) {
+      const pCat = normalizeArabic(p.category || "");
+      
+      if (catId === "none" && pCat !== "" && pCat !== "عام") continue;
+      if (targetCategoryName && pCat !== targetCategoryName) continue;
+
+      const oldPrice = parseFloat(p.price || 0);
+      const newPrice = Number((oldPrice * (1 + percentage / 100)).toFixed(2));
+
+      // التحديث حتى لو كان السعر متطابقاً لضمان استجابة النظام لطلبك
+      if (!isNaN(newPrice)) {
+        batch.update(window.firestoreUtils.doc(productsRef, p.id), {
+          price: newPrice,
+          "prices.bag": newPrice,
+        });
+        updateCount++;
+
+        if (updateCount % 500 === 0) {
+          await batch.commit();
+          batch = window.firestoreUtils.writeBatch(window.db);
+        }
+      }
+    }
   }
 
   if (updateCount > 0) {
@@ -873,7 +975,7 @@ export async function saveBulkPriceUpdates() {
     const statusType = notFoundCount > 0 ? "warning" : "success";
     const message =
       notFoundCount > 0
-        ? `تم تحديث ${updateCount} سعر. (تنبيه: ${notFoundCount} صنف لم يتم العثور عليهم)`
+        ? `تم تحديث ${updateCount} سعر. (تنبيه: ${notFoundCount} صنف غير موجود)`
         : `تم تحديث ${updateCount} سعر بنجاح`;
     window.showToast(message, statusType);
     closeBulkPriceUpdateModal();

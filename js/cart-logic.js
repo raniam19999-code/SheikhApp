@@ -56,17 +56,23 @@ export function renderCart() {
   document.getElementById("cart-summary").classList.remove("hidden");
   let total = 0;
   list.innerHTML = source.map(item => {
-    const sub = (item.basePrice || item.price) * item.orderedQuantity;
+    const priceVal = Number(item.basePrice || item.price || 0);
+    const sub = priceVal * item.orderedQuantity;
     total += sub;
     return `<div class="bg-white p-4 rounded-3xl border flex items-center justify-between">
-      <div><p class="font-black text-sm">${item.productName || item.name}</p><p class="text-primary font-bold">${sub} ج.م</p></div>
+      <div>
+        <p class="font-black text-sm">${item.productName || item.name}</p>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="text-[10px] text-slate-400 font-bold">${item.orderedQuantity} × ${priceVal.toFixed(2)}</span>
+          <p class="text-primary font-bold">${sub.toFixed(2)} <span class="currency-shic text-[10px] opacity-80">EGP</span></p>
+        </div>
+      </div>
       <div class="flex items-center gap-4">
-        <span class="bg-emerald-50 px-3 py-1 rounded-xl text-xs font-bold">${item.orderedQuantity}</span>
-        <button onclick="removeFromCart('${item.id}')" class="text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        <button onclick="removeFromCart('${item.id}')" class="text-red-400 hover:bg-red-50 p-2 rounded-full transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>
     </div>`;
   }).join("");
-  document.getElementById("total").innerText = total.toFixed(2);
+  document.getElementById("total").innerHTML = `${total.toFixed(2)} <span class="text-sm">ج.م</span>`;
   lucide.createIcons();
 }
 

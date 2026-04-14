@@ -48,7 +48,21 @@ const firebaseConfig =
   typeof __firebase_config !== "undefined" && __firebase_config
     ? JSON.parse(__firebase_config)
     : fallbackConfig;
-const app = initializeApp(firebaseConfig);
+
+// منع إعادة تهيئة Firebase إذا كانت موجودة بالفعل (لحل التحذيرات)
+let app;
+try {
+  if (!window.firebaseApp) {
+    app = initializeApp(firebaseConfig);
+    window.firebaseApp = app;
+  } else {
+    app = window.firebaseApp;
+  }
+} catch (e) {
+  console.error("Firebase Init Error:", e);
+  app = window.firebaseApp;
+}
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId =
@@ -83,6 +97,20 @@ window.authUtils = {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+};
+
+// دالة عالمية لتنظيف النصوص العربية لضمان مطابقة ذكية (تتجاهل الهمزات، التاء المربوطة، والتشكيل)
+window.normalizeArabic = function(text) {
+  if (!text) return "";
+  return String(text)
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/[ىئ]/g, "ي")
+    .replace(/[ؤ]/g, "و")
+    .replace(/[ًٌٍَُِّْ]/g, "") // إزالة حركات التشكيل والزخارف
+    .replace(/\s+/g, " "); // توحيد المسافات
 };
 
 // State
@@ -126,39 +154,40 @@ window.renderCategories = function () {
     return;
   }
 
-  // تصفية الأقسام حسب المستوى الحالي
-  const filtered = window.categories.filter((c) => (c.parentId || null) === window.currentParentId);
-
-  let html = "";
+  // تصفية الأقسام للمستوى الرئيسي (فقط إذا كنا في الصفحة الرئيسية)
+  const mainCats = window.categories.filter((c) => !c.parentId);
   
-  // إضافة زر الرجوع إذا كنا في مستوى فرعي
-  if (window.currentParentId) {
+  let html = "";
+
+  if (window.currentParentId === null) {
+    // في الصفحة الرئيسية، نعرض الأقسام الرئيسية في الشريط العلوي
+    html += mainCats.map(
+      (c) => {
+        const hasSubs = window.categories.some(child => child.parentId === c.id);
+        return `
+        <div onclick="window.handleCategoryClick('${c.id}', '${c.name}', ${hasSubs})" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
+          <div class="category-card-premium">
+            <div class="category-image-fill" style="background-image: url('${c.img || "img/logo.png"}');"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          </div>
+          <span class="text-[12px] font-black text-slate-700 text-center leading-tight max-w-[110px] group-hover:text-emerald-800 transition-colors uppercase tracking-tight">${c.name}</span>
+        </div>
+        `;
+      }
+    ).join("");
+  } else {
+    // دخلنا في قسم رئيسي، الكل يختفي ونظهر فقط زر الرجوع في الشريط العلوي
     html += `
       <div onclick="window.navigateBackCategories()" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
         <div class="w-28 sm:w-32 h-28 sm:h-32 rounded-[2.5rem] bg-slate-50 shadow-md border-2 border-slate-100 flex items-center justify-center overflow-hidden group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-500 group-hover:-translate-y-2 transition-all duration-500">
           <i data-lucide="arrow-right" class="w-10 h-10 group-hover:scale-125 transition-transform duration-500"></i>
         </div>
-        <span class="text-[11px] sm:text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">رجوع</span>
+        <span class="text-[11px] sm:text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">رجوع للأقسام</span>
       </div>
     `;
   }
 
-  html += filtered.map(
-      (c) => {
-        const hasSubs = window.categories.some(child => child.parentId === c.id);
-        return `
-      <div onclick="window.handleCategoryClick('${c.id}', '${c.name}', ${hasSubs})" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
-        <div class="category-card-premium">
-          <div class="category-image-fill" style="background-image: url('${c.img || "img/logo.png"}');"></div>
-          <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        </div>
-        <span class="text-[12px] font-black text-slate-700 text-center leading-tight max-w-[110px] group-hover:text-emerald-800 transition-colors uppercase tracking-tight">${c.name}</span>
-      </div>
-        `;
-      }
-    )
-    .join("");
-
+  container.className = "flex gap-4 sm:gap-5 overflow-x-auto pb-4 pt-1 no-scrollbar scroll-smooth";
   container.innerHTML = html;
   if (window.lucide) lucide.createIcons();
 };
@@ -177,15 +206,34 @@ window.handleCategoryClick = function(catId, catName, hasSubs) {
 };
 
 window.navigateBackCategories = function() {
-  window.currentParentId = null;
-  window.renderCategories();
+  const filterCatId = window.currentFilter ? (window.currentFilter.id || window.currentFilter.value) : null;
+  
+  if (window.currentParentId !== null && window.currentFilter && window.currentFilter.type === 'category' && filterCatId !== window.currentParentId) {
+      // نحن داخل قسم فرعي (نعرض منتجاته). الرجوع خطوة للخلف یعنی الرجوع للقسم الرئيسي لعرض الأقسام الفرعية التابعة له.
+      const parentCat = window.categories.find(c => c.id === window.currentParentId);
+      window.filterByCategory(window.currentParentId, parentCat ? parentCat.name : "");
+      window.renderCategories();
+  } else {
+      // نحن إما في قسم رئيسي أو أن هناك شيء آخر، الرجوع النهائي للصفحة الرئيسية
+      window.currentParentId = null;
+      window.currentFilter = { type: 'all', value: '' };
+      window.renderCategories();
+      const title = document.getElementById("current-category-title");
+      if (title) {
+        title.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`;
+        if (window.lucide) lucide.createIcons();
+      }
+      window.renderProducts(); // لأن currentFilter أصبح 'all'، سيتم عرض الأقسام الفرعية حسب التعديل الأخير
+  }
 };
 
 window.renderProducts = function (productsToRender = window.products) {
   const grid = document.getElementById("products-grid");
   const loadMoreBtn = document.getElementById("load-more-container");
+  const pw = document.getElementById("products-wrapper");
   if (!grid) return;
 
+  if (pw) pw.classList.remove("hidden"); // دائماً نظهر شبكة المنتجات الآن، إما لفرعيات أو منتجات
   // حفظ النسخة الحالية للرجوع إليها عند ضغط "عرض المزيد"
   window.lastRenderedProducts = productsToRender;
 
@@ -212,7 +260,10 @@ window.renderProducts = function (productsToRender = window.products) {
       const isOutOfStock = p.status === "out_of_stock" || p.quantity <= 0;
       const priceBlock = window.renderPriceBlock
         ? window.renderPriceBlock(p)
-        : `<p class="font-bold text-slate-800">${p.price || 0} ج.م للـ كيس</p>`;
+        : `<p class="font-bold text-slate-800">${Number(p.price || 0).toFixed(2)} <span class="currency-shic">EGP</span> للـ كيس</p>`;
+      
+      const defaultPrice = window.getEffectivePrice ? window.getEffectivePrice(p, 'bag') : (p.price || 0);
+      const safeName = p.name ? p.name.replace(/['"]/g, "") : "منتج";
 
       return `
         <div class="bg-white rounded-[2.5rem] p-4 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 hover:-translate-y-1.5 transition-all duration-500 group relative ${isOutOfStock ? "opacity-75" : ""}">
@@ -244,7 +295,7 @@ window.renderProducts = function (productsToRender = window.products) {
                     </div>
                     
                     <button 
-                        onclick="window.addToCart('${p.id}', '${p.name}', ${p.price || 0}, 'bag')"
+                        onclick="window.addToCart('${p.id}', '${safeName}', ${defaultPrice}, 'bag')"
                         data-id="${p.id}"
                         class="add-to-cart-btn p-4 bg-[#1B4332] text-white rounded-[1.25rem] shadow-xl shadow-emerald-100 hover:bg-[#2D6A4F] hover:shadow-2xl hover:scale-105 active:scale-90 transition-all duration-300 ${isOutOfStock ? "grayscale cursor-not-allowed" : ""}"
                         ${isOutOfStock ? "disabled" : ""}
@@ -257,6 +308,75 @@ window.renderProducts = function (productsToRender = window.products) {
     })
     .join("");
 
+  if (window.lucide) lucide.createIcons();
+};
+
+// New function to render subcategories in the main grid
+window.renderSubcategoriesInMainGrid = function(parentId = null) {
+  const grid = document.getElementById("products-grid");
+  const loadMoreBtn = document.getElementById("load-more-container");
+  const pw = document.getElementById("products-wrapper");
+  if (!grid) return;
+
+  if (pw) pw.classList.remove("hidden");
+
+  let subCats = [];
+  let displayTitle = "";
+
+  if (parentId === null) { // Homepage, show default main categories' subcategories
+      const grocCat = window.categories.find(c => !c.parentId && c.name && window.normalizeArabic(c.name).includes("بقال"));
+      if (grocCat) {
+          subCats = window.categories.filter(c => c.parentId === grocCat.id);
+          displayTitle = `أقسام ${grocCat.name}`;
+      } else {
+          const firstMain = window.categories.find(c => !c.parentId);
+          if (firstMain) {
+              subCats = window.categories.filter(c => c.parentId === firstMain.id);
+              displayTitle = `أقسام ${firstMain.name}`;
+          } else {
+              subCats = window.categories.filter(c => c.parentId);
+              displayTitle = "تصفح الأقسام الشاملة";
+          }
+      }
+  } else { // A parent category is selected, show its direct subcategories
+      subCats = window.categories.filter(c => c.parentId === parentId);
+      const parentCat = window.categories.find(c => c.id === parentId);
+      displayTitle = parentCat ? parentCat.name : "الأقسام الفرعية";
+  }
+
+  if (subCats.length === 0) {
+    grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-400 font-bold">لا توجد أقسام فرعية هنا.</div>`;
+  } else {
+    grid.innerHTML = subCats.map(sub => {
+        const hasSubs = window.categories.some(child => child.parentId === sub.id);
+        const parentCat = window.categories.find(p => p.id === sub.parentId);
+        
+        return `
+        <div onclick="window.handleCategoryClick('${sub.id}', '${sub.name}', ${hasSubs})" class="bg-white rounded-[2rem] p-3 sm:p-4 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 hover:-translate-y-1.5 transition-all duration-500 group cursor-pointer relative overflow-hidden flex flex-col justify-between">
+          <div class="relative h-32 sm:h-40 mb-3 rounded-[1.5rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner w-full">
+            <div class="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-700 ease-out" style="background-image: url('${sub.img || "img/logo.png"}');"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-[#1B4332]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          </div>
+          <div class="px-1 text-center mt-auto">
+              <p class="text-[10px] text-emerald-600 font-black mb-1.5 tracking-wide uppercase">${parentCat ? parentCat.name : ""}</p>
+              <h5 class="font-black text-slate-800 text-sm sm:text-base leading-tight group-hover:text-emerald-700 transition-colors uppercase tracking-tight">${sub.name}</h5>
+              <span class="text-[10px] text-slate-400 font-bold mt-2 inline-flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-600 group-hover:border-emerald-100 transition-colors uppercase"><i data-lucide="arrow-left" class="w-3 h-3"></i> المنتجات</span>
+          </div>
+        </div>`;
+    }).join("");
+  }
+  
+  if (loadMoreBtn) loadMoreBtn.classList.add("hidden");
+  
+  const titleEl = document.getElementById("current-category-title");
+  if (titleEl) {
+    if (parentId === null) {
+      titleEl.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`;
+    } else {
+      titleEl.innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> أقسام: ${displayTitle}`;
+    }
+  }
+  
   if (window.lucide) lucide.createIcons();
 };
 
@@ -353,14 +473,22 @@ function listenToProducts() {
   return window.firestoreUtils.onSnapshot(q, (snap) => {
     window.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // تم التعديل لإرسال البيانات مباشرة للدالة
-    // تحديث العرض بناءً على الفلتر الحالي بدلاً من إظهار الكل دائماً
-    if (window.applyCurrentFilter) {
-        window.applyCurrentFilter();
+    // On initial load or product update, render subcategories for homepage or apply current filter
+    if (window.currentFilter.type === 'all' && window.currentParentId === null) {
+        window.renderSubcategoriesInMainGrid(null); // Default homepage view
+    } else if (window.currentFilter.type === 'category' && window.currentParentId !== null) {
+        // If a parent category is selected, check if it has subcategories.
+        // If it does, render subcategories. If not, render products.
+        const currentCat = window.categories.find(c => c.id === window.currentParentId);
+        const hasSubs = currentCat ? window.categories.some(child => child.parentId === currentCat.id) : false;
+        if (hasSubs) {
+            window.renderSubcategoriesInMainGrid(window.currentParentId);
+        } else {
+            window.applyCurrentFilter(); // This will call renderProducts
+        }
     } else {
-        window.renderProducts(window.products);
+        window.applyCurrentFilter(); // This will call renderProducts
     }
-
     
     if (document.body.classList.contains("is-admin")) {
         if (typeof Admin?.renderAdminProducts === "function") Admin.renderAdminProducts();
@@ -407,18 +535,76 @@ function listenToCategories() {
 }
 
 window.filterByCategory = function (catId, catName) {
-  window.currentFilter = { type: 'category', id: catId, name: catName }; 
+  window.currentFilter = { type: 'category', id: catId, name: catName };
   window.currentRenderLimit = window.itemsPerPage; // إعادة تعيين الحد عند تغيير القسم
   const filtered = window.products.filter(
     (p) => p.category === catName || p.categoryId === catId,
   );
   const title = document.getElementById("current-category-title");
   if (title) {
-    title.innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-emerald-500"></i> قسم: ${catName}`;
+    title.innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> قسم: ${catName}`;
     if (window.lucide) lucide.createIcons();
   }
   window.renderProducts(filtered);
 };
+
+window.handleCategoryClick = function(catId, catName, hasSubs) {
+  if (hasSubs) {
+    window.currentParentId = catId;
+    window.currentFilter = { type: 'category', id: catId, name: catName }; // Set filter context
+    window.renderCategories(); // Updates top bar
+    window.renderSubcategoriesInMainGrid(catId); // Show subcategories in main grid
+  } else {
+    // If it's a leaf category, just filter and render products
+    window.currentParentId = catId; // Keep track of the current leaf category
+    window.filterByCategory(catId, catName); // This will call renderProducts
+  }
+};
+
+window.navigateBackCategories = function() {
+  const currentCat = window.categories.find(c => c.id === window.currentParentId);
+  
+  if (currentCat && currentCat.parentId) {
+      // If current category has a parent, go back to parent's subcategories
+      window.currentParentId = currentCat.parentId;
+      const parentCat = window.categories.find(c => c.id === currentCat.parentId);
+      window.currentFilter = { type: 'category', id: parentCat.id, name: parentCat.name };
+      window.renderCategories();
+      window.renderSubcategoriesInMainGrid(parentCat.id);
+  } else {
+      // If current category has no parent (it's a top-level parent or homepage), go to homepage default
+      window.currentParentId = null;
+      window.currentFilter = { type: 'all', value: null };
+      window.renderCategories();
+      window.renderSubcategoriesInMainGrid(null); // Show default main categories' subcategories
+  }
+
+  if (window.lucide) lucide.createIcons();
+};
+
+window.searchProducts = function(term) {
+  window.currentFilter = { type: 'search', value: term };
+  window.currentRenderLimit = window.itemsPerPage;
+  if (!term || term.trim() === "") return window.renderProducts(window.products);
+
+  const searchTerms = window.normalizeArabic(term).split(/\s+/).filter(Boolean);
+  
+  const filtered = window.products.filter((p) => {
+    const pName = window.normalizeArabic(p.name);
+    const pCat = window.normalizeArabic(p.category || "");
+    const pSku = (p.sku || "").toLowerCase();
+    const combinedText = `${pName} ${pCat} ${pSku}`;
+    
+    // بحث ذكي: التأكد من مطابقة كل كلمة بحث مع أي جزء من بيانات المنتج (AND Search)
+    return searchTerms.every(t => combinedText.includes(t));
+  });
+
+  const titleElem = document.getElementById("current-category-title");
+  if (titleElem) {
+    titleElem.innerHTML = `<i data-lucide="search" class="w-5 h-5 text-emerald-500"></i> نتائج البحث: ${term}`;
+  }
+  window.renderProducts(filtered);
+}
 
 window.loadMoreProducts = function() {
     window.currentRenderLimit += window.itemsPerPage;
@@ -427,22 +613,6 @@ window.loadMoreProducts = function() {
     // سكرول بسيط للأسفل لرؤية المنتجات الجديدة
     window.scrollBy({ top: 300, behavior: 'smooth' });
 };
-
-function searchProducts(term) {
-  window.currentFilter = { type: 'search', value: term };
-  window.currentRenderLimit = window.itemsPerPage; // إعادة تعيين الحد عند البحث
-  if (!term) return window.renderProducts(window.products);
-  const filtered = window.products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(term.toLowerCase()) ||
-      (p.category && p.category.toLowerCase().includes(term.toLowerCase())),
-  );
-  const titleElem = document.getElementById("current-category-title");
-  if (titleElem) {
-    titleElem.innerHTML = `<i data-lucide="search" class="w-5 h-5 text-emerald-500"></i> نتائج البحث: ${term}`;
-  }
-  window.renderProducts(filtered);
-}
 
 window.filterByStatus = function (status) {
   window.currentFilter = { type: 'status', value: status };
@@ -454,7 +624,7 @@ window.filterByStatus = function (status) {
 window.applyCurrentFilter = function () {
     const filter = window.currentFilter;
     if (!filter || filter.type === 'all') {
-        window.renderProducts(window.products);
+        window.renderSubcategoriesInMainGrid(null); // Default homepage view
     } else if (filter.type === 'category') {
         const filtered = window.products.filter(
             (p) => p.category === filter.name || p.categoryId === filter.id,

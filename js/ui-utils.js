@@ -14,6 +14,13 @@ function safeCreateIcons() {
 }
 
 export function showTab(id) {
+  if (id === "checkout" && (!window.currentUser || window.currentUser.isAnonymous)) {
+    if (window.showLoginModal) {
+      window.showLoginModal();
+      return;
+    }
+  }
+
   document
     .querySelectorAll(".tab-content")
     .forEach((t) => t.classList.remove("active"));
@@ -160,7 +167,7 @@ export function toggleNotificationPanel() {
 export function handleNotificationAction(id) {
   const n = window.notifications.find((x) => x.id === id);
   if (n && n.actionFn) n.actionFn();
-  document.getElementById("notification-panel").classList.add("hidden");
+  // إخفاء اللوحة يتم فقط عبر الضغط على أيقونة الإشعارات كما طلب المستخدم
 }
 
 export function clearAllNotifications() {
@@ -221,9 +228,9 @@ export function navigateBack() {
     title.innerHTML = `<i data-lucide="grid" class="w-5 h-5 text-[#1B4332]"></i> قائمة المنتجات`;
   }
 
-  if (typeof window.renderCategories === "function") window.renderCategories();
-  if (typeof window.renderProducts === "function")
-    window.renderProducts(window.products);
+  if (typeof window.renderCategories === "function") window.renderCategories(); // Render top bar categories
+  if (typeof window.renderSubcategoriesInMainGrid === "function")
+    window.renderSubcategoriesInMainGrid(null); // Show default subcategories in main grid
 
   safeCreateIcons();
 }
