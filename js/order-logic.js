@@ -250,6 +250,9 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
             <a href="tel:${order.customerPhone}" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-90 flex items-center justify-center" title="اتصال بالعميل">
                <i data-lucide="phone" class="w-4 h-4"></i>
             </a>
+            <button onclick="window.deleteOrder('${order.id}')" class="p-2.5 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 transition-all active:scale-90 flex items-center justify-center" title="حذف الطلب">
+               <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
           ` : ''}
         </div>
       </div>
@@ -296,3 +299,17 @@ window.updateOrderStatus = async (id, newStatus) => {
     window.showToast("خطأ في التحديث", "error");
   }
 };
+
+export async function deleteOrder(id) {
+  if (!confirm("هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.")) {
+    return;
+  }
+  try {
+    const orderRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "orders", id);
+    await window.firestoreUtils.deleteDoc(orderRef);
+    window.showToast("تم حذف الطلب بنجاح", "success");
+  } catch (e) {
+    window.showToast("فشل في حذف الطلب", "error");
+    console.error("Error deleting order:", e);
+  }
+}

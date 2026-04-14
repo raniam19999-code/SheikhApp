@@ -41,64 +41,64 @@ export async function initAuth() {
 
 export function listenToAuth() {
   window.authUtils.onAuthStateChanged(window.auth, async (user) => {
+    // تنظيف أي مستمع سابق لضمان سرعة الأداء وعدم تداخل الجلسات
+    if (window.unsubs.userProfile) {
+      window.unsubs.userProfile();
+      delete window.unsubs.userProfile;
+    }
+
     window.currentUser = user;
     const authView = document.getElementById("auth-view");
     const profileView = document.getElementById("profile-view");
+
     if (user && !user.isAnonymous) {
       authView.classList.add("hidden");
       profileView.classList.remove("hidden");
       document.getElementById("profile-email").innerText = user.email;
-      const uDoc = await window.firestoreUtils.getDoc(
-        window.firestoreUtils.doc(
-          window.db,
-          "artifacts",
-          window.appId,
-          "users",
-          user.uid,
-        ),
-      );
-      const data = uDoc.exists() ? uDoc.data() : {};
-      if (
-        user.email?.toLowerCase() ===
-          window.PRIMARY_ADMIN_EMAIL.toLowerCase() &&
-        data.role !== "admin"
-      ) {
-        await window.firestoreUtils.setDoc(
-          window.firestoreUtils.doc(
-            window.db,
-            "artifacts",
-            window.appId,
-            "users",
-            user.uid,
-          ),
-          { role: "admin" },
-          { merge: true },
-        );
-        data.role = "admin";
+      // إظهار اسم المستخدم إذا كان مسجلاً عبر جوجل لزيادة احترافية الواجهة
+      if (user.displayName && document.getElementById("profile-name")) {
+          document.getElementById("profile-name").innerText = user.displayName;
       }
-      if (data.role === "admin") {
-        window.currentUserRole = "admin";
-        document.body.classList.add("is-admin");
-        document.getElementById("admin-badge")?.classList.remove("hidden");
-        document.getElementById("admin-tab")?.classList.remove("hidden");
 
-        // Super Admin constraint
-        if(user.email && user.email.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase()) {
-            document.getElementById("admin-tab-bot")?.classList.remove("hidden");
+      const uRef = window.firestoreUtils.doc(
+        window.db,
+        "artifacts",
+        window.appId,
+        "users",
+        user.uid,
+      );
+
+      // استخدام المستمع اللحظي (onSnapshot) لضمان تفعيل صلاحيات الإدارة فوراً دون تحديث الصفحة
+      window.unsubs.userProfile = window.firestoreUtils.onSnapshot(uRef, async (uDoc) => {
+        const data = uDoc.exists() ? uDoc.data() : {};
+        
+        if (user.email?.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase() && data.role !== "admin") {
+          await window.firestoreUtils.setDoc(uRef, { role: "admin" }, { merge: true });
+          return;
         }
-        if (
-          !window.unsubs.orders &&
-          typeof window.listenToOrders === "function"
-        )
-          window.unsubs.orders = window.listenToOrders();
-        window.renderAdminProducts();
-        window.renderAdminCategories();
-      } else {
-        window.currentUserRole = "user";
-        document.body.classList.remove("is-admin");
-        if (!window.unsubs.myOrders)
-          window.unsubs.myOrders = window.loadUserOrders();
-      }
+
+        if (data.role === "admin") {
+          window.currentUserRole = "admin";
+          document.body.classList.add("is-admin");
+          document.getElementById("admin-badge")?.classList.remove("hidden");
+          document.getElementById("admin-tab")?.classList.remove("hidden");
+
+          if(user.email && user.email.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+              document.getElementById("admin-tab-bot")?.classList.remove("hidden");
+          }
+          if (!window.unsubs.orders && typeof window.listenToOrders === "function")
+            window.unsubs.orders = window.listenToOrders();
+          
+          window.renderAdminProducts();
+          window.renderAdminCategories();
+        } else {
+          window.currentUserRole = "user";
+          document.body.classList.remove("is-admin");
+          if (!window.unsubs.myOrders && typeof window.loadUserOrders === "function")
+            window.unsubs.myOrders = window.loadUserOrders();
+        }
+      });
+
       if (!window.unsubs.userCart)
         window.unsubs.userCart = window.listenToUserCart(user.uid);
     } else {
@@ -106,6 +106,10 @@ export function listenToAuth() {
       authView.classList.remove("hidden");
       profileView.classList.add("hidden");
       document.body.classList.remove("is-admin");
+      if (window.unsubs.userProfile) {
+        window.unsubs.userProfile();
+        delete window.unsubs.userProfile;
+      }
       if (window.unsubs.userCart) {
         window.unsubs.userCart();
         delete window.unsubs.userCart;
@@ -254,8 +258,12 @@ export async function handleModalAuth() {
 }
 
 export async function signInWithGoogle() {
-  const provider = new window.authUtils.GoogleAuthProvider();
   try {
+    const provider = new window.authUtils.GoogleAuthProvider();
+    // فرض ظهور نافذة اختيار الحساب لضمان عدم حدوث تعليق في المتصفح
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    window.showToast("جاري الاتصال بحساب Google...", "info", 2000);
     const res = await window.authUtils.signInWithPopup(window.auth, provider);
     const user = res.user;
     const uRef = window.firestoreUtils.doc(

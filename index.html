@@ -101,6 +101,18 @@
       .nav-btn.active span {
         color: var(--primary);
       }
+      /* تصميم الفورم الاحترافي (أسلوب فيسبوك) */
+      .fb-style-input {
+        border: 1px solid #dddfe2 !important;
+        border-radius: 8px !important;
+        font-size: 17px !important;
+        padding: 14px 16px !important;
+        transition: border-color 0.2s, box-shadow 0.2s !important;
+      }
+      .fb-style-input:focus {
+        border-color: #1b4332 !important;
+        box-shadow: 0 0 0 2px #e7f3ff !important;
+      }
       /* القضاء التام على الفراغات البيضاء في الأقسام */
       .category-card-premium {
         width: 110px !important;
@@ -743,12 +755,12 @@
                 type="text"
                 id="full-name"
                 placeholder="الاسم بالكامل"
-                class="w-full p-4.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all font-semibold"
+                class="w-full fb-style-input bg-white font-semibold"
               />
               <div class="grid grid-cols-2 gap-3">
                 <select
                   id="gender"
-                  class="w-full p-4.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all font-semibold"
+                  class="w-full fb-style-input bg-white font-semibold"
                 >
                   <option value="male">ذكر</option>
                   <option value="female">أنثى</option>
@@ -757,7 +769,7 @@
                   type="tel"
                   id="phone"
                   placeholder="رقم الموبايل"
-                  class="w-full p-4.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all font-semibold text-left"
+                  class="w-full fb-style-input bg-white font-semibold text-left"
                   dir="ltr"
                 />
               </div>
@@ -766,20 +778,20 @@
               type="email"
               id="email"
               placeholder="البريد الإلكتروني"
-              class="w-full p-4.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all text-left font-semibold"
+              class="w-full fb-style-input bg-white text-left font-semibold"
               dir="ltr"
             />
             <input
               type="password"
               id="password"
               placeholder="كلمة المرور"
-              class="w-full p-4.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all text-left font-semibold"
+              class="w-full fb-style-input bg-white text-left font-semibold"
               dir="ltr"
             />
             <button
               onclick="handleAuth()"
               id="auth-btn"
-              class="w-full primary-green text-white py-4.5 rounded-2xl font-black shadow-xl shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-95 text-lg mt-2"
+              class="w-full bg-[#1B4332] text-white py-4 rounded-xl font-black shadow-lg hover:bg-[#2D6A4F] transition-all active:scale-95 text-[18px] mt-2"
             >
               دخول
             </button>
