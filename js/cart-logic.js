@@ -56,7 +56,17 @@ export function renderCart() {
   document.getElementById("cart-summary").classList.remove("hidden");
   let total = 0;
   list.innerHTML = source.map(item => {
-    const priceVal = Number(item.basePrice || item.price || 0);
+    // جلب السعر المباشر من قائمة المنتجات لضمان التحديث اللحظي في السلة
+    const product = (window.products || []).find(p => p.id === (item.productId || item.originalId));
+    let priceVal = Number(item.basePrice || item.price || 0);
+    
+    if (product) {
+      const unit = item.selectedUnit || item.unit || 'bag';
+      // استخدام وظيفة getEffectivePrice من pricing.js إذا كانت متوفرة لجلب السعر الحالي للوحدة
+      const livePrice = typeof window.getEffectivePrice === 'function' ? window.getEffectivePrice(product, unit) : (product.prices?.[unit] || product.price);
+      if (livePrice > 0) priceVal = Number(livePrice);
+    }
+
     const sub = priceVal * item.orderedQuantity;
     total += sub;
     return `<div class="bg-white p-4 rounded-3xl border flex items-center justify-between">

@@ -22,7 +22,21 @@ export async function placeOrder() {
     return window.showToast("السلة فارغة!", "error");
   }
 
-  const total = sourceCart.reduce((sum, item) => sum + ((item.basePrice || item.price) * item.orderedQuantity), 0);
+  // تحديث أسعار المنتجات في الطلب لتكون مطابقة للأسعار الحالية في الموقع قبل الحفظ
+  const itemsWithLivePrices = sourceCart.map(item => {
+    const product = (window.products || []).find(p => p.id === (item.productId || item.originalId));
+    let currentPrice = Number(item.basePrice || item.price || 0);
+    
+    if (product) {
+      const unit = item.selectedUnit || item.unit || 'bag';
+      const livePrice = typeof window.getEffectivePrice === 'function' ? window.getEffectivePrice(product, unit) : (product.prices?.[unit] || product.price);
+      if (livePrice > 0) currentPrice = Number(livePrice);
+    }
+    
+    return { ...item, basePrice: currentPrice, price: currentPrice };
+  });
+
+  const total = itemsWithLivePrices.reduce((sum, item) => sum + (item.basePrice * item.orderedQuantity), 0);
 
   const orderData = {
     userId: window.currentUser ? window.currentUser.uid : 'anonymous',
@@ -31,7 +45,7 @@ export async function placeOrder() {
     customerAddress: address,
     coordinates: coords,
     paymentMethod: paymentMethod,
-    items: sourceCart,
+    items: itemsWithLivePrices,
     totalAmount: total,
     status: 'pending', // pending, processing, shipped, delivered, cancelled
     createdAt: window.firestoreUtils.serverTimestamp(),

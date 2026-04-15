@@ -33,6 +33,7 @@ import {
   where,
   getDocs,
   writeBatch,
+  limit,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const fallbackConfig = {
@@ -87,6 +88,7 @@ window.firestoreUtils = {
   where,
   getDocs,
   writeBatch,
+  limit,
 };
 window.authUtils = {
   signInAnonymously,
@@ -278,13 +280,14 @@ window.renderProducts = function (productsToRender = window.products) {
                 <p class="text-[10px] text-emerald-600 font-black mb-1.5 tracking-wide uppercase">${p.category || "عام"}</p>
                 <h4 class="font-bold text-slate-800 text-sm mb-2 leading-tight group-hover:text-emerald-700 transition-colors">${p.name}</h4>
                 
-                <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono mb-3 bg-slate-50/80 px-3 py-2 rounded-2xl border border-slate-100/60 shadow-sm">
-                    <span class="flex items-center gap-1.5"><i data-lucide="tag" class="w-3.5 h-3.5 text-slate-400"></i> ${p.sku || "---"}</span>
-                    <span class="flex items-center gap-1.5 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100/50">${p.unitMeasurement || p.quantity || "متوفر"}</span>
-                </div>
-                
-                <div class="product-price-wrapper mb-4">
-                    ${priceBlock}
+                <div class="bg-slate-50/80 p-3 rounded-[1.5rem] border border-slate-100/60 mb-3 shadow-sm">
+                    <div class="flex items-center justify-between text-[11px] mb-2.5 pb-2 border-b border-slate-200/50">
+                        <span class="flex items-center gap-1.5 font-mono text-slate-500"><i data-lucide="tag" class="w-3.5 h-3.5 text-slate-400"></i> ${p.sku || "---"}</span>
+                        <span class="flex items-center gap-1.5 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100/50">${p.unitMeasurement || "متوفر"}</span>
+                    </div>
+                    <div class="product-price-wrapper min-h-[50px] flex items-center justify-center">
+                        ${priceBlock}
+                    </div>
                 </div>
 
                 <div class="mt-4 flex items-center gap-2.5">
@@ -460,16 +463,20 @@ async function startApp() {
 }
 
 function listenToProducts() {
-  const q = window.firestoreUtils.query(
-    window.firestoreUtils.collection(
-      window.db,
-      "artifacts",
-      window.appId,
-      "public",
-      "data",
-      "products",
-    ),
+  const productsCollectionRef = window.firestoreUtils.collection(
+    window.db,
+    "artifacts",
+    window.appId,
+    "public",
+    "data",
+    "products"
   );
+
+  const q = window.firestoreUtils.query(
+    productsCollectionRef,
+    window.firestoreUtils.limit(5000)
+  );
+
   return window.firestoreUtils.onSnapshot(q, (snap) => {
     window.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 

@@ -13,23 +13,51 @@
 /* ============================================================
    2. حساب السعر الفعلي للمنتج بحسب الوضع الحالي
    ============================================================ */
+window.cleanNumber = function(val) {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  // تحويل الأرقام العربية/الفارسية وتنظيف الفواصل والرموز
+  let str = String(val).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+                       .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+  let cleaned = str.replace(/[^\d.-]/g, '').trim();
+  let res = parseFloat(cleaned);
+  return isNaN(res) ? 0 : res;
+};
+
 window.getEffectivePrice = function (product, unitType = 'bag') {
   if (!product) return 0;
   const prices = product.prices || {};
   // توافق مع النظام القديم إذا لم توجد خريطة أسعار
   if (!product.prices) {
-      if (unitType === 'retail' || unitType === 'bag') return Number(product.retailPrice || product.price || 0);
-      return Number(product.price || 0);
+      if (unitType === 'retail' || unitType === 'bag') 
+          return window.cleanNumber(product.retailPrice || product.price || 0);
+      return window.cleanNumber(product.price || 0);
   }
-  return Number(prices[unitType]) || 0;
+  let val = window.cleanNumber(prices[unitType]);
+  // إذا كان سعر الوحدة المختارة 0، نستخدم السعر الأساسي كاحتياطي
+  return val > 0 ? val : window.cleanNumber(product.price || 0);
 };
 
 /* ============================================================
    3. عرض بطاقة السعر المزدوج داخل كارت المنتج
    ============================================================ */
 window.renderPriceBlock = function (product) {
-  const prices = product.prices || { bag: product.price || 0 };
-  const units = product.availableUnits || { bag: true };
+  // دمج الأسعار القديمة والجديدة لضمان عدم ظهور أصفار إذا كانت البيانات ناقصة
+  const pRef = product || { prices: {} };
+  // التأكد من تحويل كائن الأسعار بالكامل لأرقام نظيفة
+  const prices = {};
+  if (pRef.prices) Object.keys(pRef.prices).forEach(k => prices[k] = window.cleanNumber(pRef.prices[k]));
+  
+  const basePrice = window.cleanNumber(pRef.price || pRef.retailPrice || 0);
+
+  // إذا كان سعر الكيس 0 أو غير موجود، نستخدم السعر الأساسي للمنتج كاحتياطي
+  if ((!prices.bag || prices.bag === 0) && basePrice > 0) {
+    prices.bag = basePrice;
+  }
+  
+  // تأمين وجود وحدات للعرض - إذا توفر سعر للكيس نظهر الوحدة فوراً
+  const units = pRef.availableUnits ? { ...pRef.availableUnits } : {};
+  if (prices.bag > 0) units.bag = true;
   
   const unitLabels = {
     bag: { label: 'كيس & شنطة', icon: 'package' },
@@ -42,22 +70,37 @@ window.renderPriceBlock = function (product) {
     tin: { label: 'صفيحة', icon: 'box' }
   };
 
-  return `
-    <div class="price-block flex flex-wrap gap-1 mt-2" data-product-id="${product.id}">
-      ${Object.keys(unitLabels).map(unitKey => {
-        if (!units[unitKey] || !prices[unitKey]) return '';
-        const isActive = unitKey === 'bag'; // افتراضياً الكيس هو النشط
-        return `
-          <button
-            class="unit-selector-btn ${isActive ? 'active-unit' : ''} border px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
-            onclick="updateProductUnitSelection('${product.id}', '${unitKey}', ${prices[unitKey]}, event)"
-          >
-            <i data-lucide="${unitLabels[unitKey].icon}" class="w-3 h-3"></i>
-            ${unitLabels[unitKey].label}: ${Number(prices[unitKey] || 0).toFixed(2)} <span class="currency-shic">EGP</span>
-          </button>
-        `;
-      }).join('')}
-    </div>`;
+  const html = Object.keys(unitLabels).map(unitKey => {
+    const pVal = prices[unitKey] || 0;
+    // إظهار الوحدة فقط إذا كانت مفعلة ولها سعر أكبر من صفر
+    if (!units[unitKey] || pVal <= 0) return '';
+
+    const isActive = unitKey === 'bag'; // افتراضياً الكيس هو النشط
+    return `
+      <button
+        class="unit-selector-btn ${isActive ? 'active-unit bg-[#1B4332] text-white border-[#1B4332]' : 'bg-white text-slate-700 border-slate-200'} border px-3 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 hover:border-[#1B4332] shadow-sm grow justify-center"
+        onclick="updateProductUnitSelection('${product.id}', '${unitKey}', ${pVal}, event)"
+      >
+        <i data-lucide="${unitLabels[unitKey].icon}" class="w-5 h-5"></i>
+        <div class="flex flex-col items-start leading-tight">
+          <span class="text-[9px] opacity-70">${unitLabels[unitKey].label}</span>
+          <span class="text-base sm:text-lg">${pVal.toFixed(2)} <span class="text-[10px] ${isActive ? 'text-white/80' : 'text-emerald-600'}">EGP</span></span>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  // إذا لم يتم توليد أي أزرار أو كان السعر الظاهر "صفر" - نظهر السعر الأساسي كخيار أخير
+  if (!html || html.trim() === "" || Object.values(prices).every(v => v <= 0)) {
+    // إذا لم تكن هناك وحدات مفعلة، نظهر السعر الأساسي للمنتج بشكل بارز جداً
+    const finalDisplayPrice = basePrice > 0 ? basePrice : 0;
+    return `<div class="flex items-center justify-between bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200 w-full shadow-inner">
+              <span class="text-xs font-black text-[#1B4332]">سعر المنتج:</span>
+              <p class="font-black text-[#1B4332] text-2xl tracking-tighter">${Number(finalDisplayPrice).toFixed(2)} <span class="currency-shic text-xs">EGP</span></p>
+            </div>`;
+  }
+
+  return `<div class="price-block flex flex-wrap gap-2 mt-2" data-product-id="${product.id}">${html}</div>`;
 };
 
 window.updateProductUnitSelection = function(productId, unitKey, price, event) {
@@ -170,8 +213,11 @@ window.getPricingValues = function () {
   const quantity  = Number(document.getElementById('p-qty')?.value || 0);
   const minThreshold = Number(document.getElementById('p-min')?.value || 5);
   
-  return { 
-    price: prices.bag || Object.values(prices).find(v => v > 0) || 0, 
+  // دالة ذكية لجلب السعر الرئيسي للمنتج (كيس أولاً ثم أي وحدة أخرى)
+  const mainPrice = window.cleanNumber(prices.bag || Object.values(prices).find(v => v > 0) || 0);
+
+  return {
+    price: mainPrice, 
     prices,
     availableUnits: {
       bag: !!prices.bag, piece: !!prices.piece, box: !!prices.box, 
@@ -248,6 +294,12 @@ window.injectPricingFields = function (product) {
       border-color: #1B4332;
       color: #1B4332;
       background: #f0fdf4;
+    }
+    .unit-selector-btn.active-unit {
+      background: #1B4332 !important;
+      color: #ffffff !important;
+      border-color: #1B4332 !important;
+      box-shadow: 0 4px 12px rgba(27,67,50,0.2);
     }
     .price-mode-btn.active-mode {
       background: #1B4332;
