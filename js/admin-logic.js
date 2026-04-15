@@ -532,8 +532,8 @@ export async function smartRowBasedUpdate(rows) {
     if (key2) productMap.set(key2.replace(/^0+/, ''), p); // دعم الأكواد بدون أصفار
   });
 
-  window.showNotification(`جاري معالجة ${rows.length} صنف... (${totalExisting} منتج موجود في قاعدة البيانات)`);
-
+  // تم إزالة التنبيه الأولي لتقليل الإزعاج بطلب من المستخدم
+  
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     try {
@@ -628,7 +628,6 @@ export async function smartRowBasedUpdate(rows) {
 
       opCount++;
       if (opCount >= 450) { // تأمين قبل الوصول للحد الأقصى 500
-        window.showNotification(`جاري الرفع... ✅ ${created} جديد | 🔄 ${updated} تحديث (${i + 1} من ${rows.length})`);
         await batch.commit();
         batch = window.firestoreUtils.writeBatch(window.db);
         opCount = 0;
@@ -636,7 +635,6 @@ export async function smartRowBasedUpdate(rows) {
     } catch (e) { console.error("Row error:", e, row); }
   }
   if (opCount > 0) {
-    window.showNotification("جاري حفظ آخر دفعة...");
     await batch.commit();
   }
   
@@ -1092,7 +1090,6 @@ export async function saveBulkPriceUpdates() {
         opCount++;
 
         if (opCount >= 450) {
-          window.showNotification(`جاري حفظ الأسعار... (${updateCount} تم تحديثهم)`);
           await batch.commit();
           batch = window.firestoreUtils.writeBatch(window.db);
           opCount = 0;
@@ -1132,7 +1129,6 @@ export async function saveBulkPriceUpdates() {
   }
 
   if (opCount > 0) {
-    window.showNotification("جاري حفظ آخر دفعة من الأسعار...");
     await batch.commit();
   }
 

@@ -87,7 +87,7 @@ export function showToast(
   };
   const activeColor = colors[type] || colors.info;
   const activeIcon = icons[type] || icons.info;
-  toast.className = `bg-gradient-to-r ${activeColor} text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 border border-white/20 backdrop-blur-xl animate-fade-in-up pointer-events-auto cursor-pointer transform transition-all duration-300 hover:scale-105`;
+  toast.className = `bg-gradient-to-r ${activeColor} text-white px-5 py-4 rounded-2xl shadow-2xl flex items-start gap-3 border border-white/20 backdrop-blur-xl animate-fade-in-up pointer-events-auto cursor-pointer transform transition-all duration-300 active:scale-95 max-w-[95vw]`;
   toast.innerHTML = `<i data-lucide="${activeIcon}" class="w-5 h-5 flex-shrink-0 mt-0.5 animate-bounce"></i><div class="flex-1"><p class="font-bold text-sm leading-tight">${message}</p></div><button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white transition-colors ml-2"><i data-lucide="x" class="w-4 h-4"></i></button>`;
   if (onClick) toast.onclick = onClick;
   container.appendChild(toast);

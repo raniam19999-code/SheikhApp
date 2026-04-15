@@ -78,13 +78,13 @@ window.renderPriceBlock = function (product) {
     const isActive = unitKey === 'bag'; // افتراضياً الكيس هو النشط
     return `
       <button
-        class="unit-selector-btn ${isActive ? 'active-unit bg-[#1B4332] text-white border-[#1B4332]' : 'bg-white text-slate-700 border-slate-200'} border px-3 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 hover:border-[#1B4332] shadow-sm grow justify-center"
+        class="unit-selector-btn ${isActive ? 'active-unit bg-[#1B4332] text-white border-[#1B4332]' : 'bg-white text-slate-700 border-slate-200'} border px-2 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center gap-1.5 hover:border-[#1B4332] shadow-sm grow justify-center touch-manipulation"
         onclick="updateProductUnitSelection('${product.id}', '${unitKey}', ${pVal}, event)"
       >
-        <i data-lucide="${unitLabels[unitKey].icon}" class="w-5 h-5"></i>
+        <i data-lucide="${unitLabels[unitKey].icon}" class="w-4 h-4 sm:w-5 sm:h-5"></i>
         <div class="flex flex-col items-start leading-tight">
-          <span class="text-[9px] opacity-70">${unitLabels[unitKey].label}</span>
-          <span class="text-base sm:text-lg">${pVal.toFixed(2)} <span class="text-[10px] ${isActive ? 'text-white/80' : 'text-emerald-600'}">EGP</span></span>
+          <span class="text-[8px] sm:text-[9px] opacity-70">${unitLabels[unitKey].label}</span>
+          <span class="text-sm sm:text-base font-bold">${pVal.toFixed(2)} <span class="text-[8px] ${isActive ? 'text-white/80' : 'text-emerald-600'}">EGP</span></span>
         </div>
       </button>
     `;
@@ -250,6 +250,11 @@ window.injectPricingFields = function (product) {
   const style = document.createElement('style');
   style.id = 'pricing-styles';
   style.textContent = `
+    /* تحسين اللمس للهواتف */
+    .unit-selector-btn {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
     /* --- بطاقة السعر المزدوج --- */
     .price-block {
       display: flex;

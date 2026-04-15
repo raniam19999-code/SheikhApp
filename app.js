@@ -167,12 +167,12 @@ window.renderCategories = function () {
       (c) => {
         const hasSubs = window.categories.some(child => child.parentId === c.id);
         return `
-        <div onclick="window.handleCategoryClick('${c.id}', '${c.name}', ${hasSubs})" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
-          <div class="category-card-premium">
+        <div onclick="window.handleCategoryClick('${c.id}', '${c.name}', ${hasSubs})" class="flex flex-col items-center gap-2 shrink-0 cursor-pointer group snap-item pb-2">
+          <div class="w-20 h-20 sm:w-28 sm:h-28 rounded-3xl sm:rounded-[2.5rem] bg-white shadow-lg border-2 border-slate-50 relative overflow-hidden group-active:scale-95 transition-transform duration-200">
             <div class="category-image-fill" style="background-image: url('${c.img || "img/logo.png"}');"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
-          <span class="text-[12px] font-black text-slate-700 text-center leading-tight max-w-[110px] group-hover:text-emerald-800 transition-colors uppercase tracking-tight">${c.name}</span>
+          <span class="text-[10px] sm:text-[12px] font-black text-slate-700 text-center leading-tight max-w-[80px] sm:max-w-[110px] group-hover:text-emerald-800 transition-colors uppercase tracking-tight">${c.name}</span>
         </div>
         `;
       }
@@ -268,39 +268,39 @@ window.renderProducts = function (productsToRender = window.products) {
       const safeName = p.name ? p.name.replace(/['"]/g, "") : "منتج";
 
       return `
-        <div class="bg-white rounded-[2.5rem] p-4 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 hover:-translate-y-1.5 transition-all duration-500 group relative ${isOutOfStock ? "opacity-75" : ""}">
+        <div class="bg-white rounded-3xl sm:rounded-[2.5rem] p-3 sm:p-4 border border-slate-100 shadow-sm active:scale-[0.98] sm:hover:shadow-2xl sm:hover:shadow-emerald-100/50 sm:hover:-translate-y-1.5 transition-all duration-300 group relative ${isOutOfStock ? "opacity-75" : ""}">
             ${isOutOfStock ? '<span class="absolute top-3 left-3 bg-red-500 text-white text-[8px] px-2.5 py-1 rounded-full z-20 font-black shadow-lg">نفذت الكمية</span>' : ""}
             
-            <div class="relative h-40 sm:h-44 mb-4 rounded-[2rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner">
+            <div class="relative h-32 sm:h-44 mb-3 sm:mb-4 rounded-2xl sm:rounded-[2rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner">
                 <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" loading="lazy">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </div>
 
             <div class="px-1 text-right">
                 <p class="text-[10px] text-emerald-600 font-black mb-1.5 tracking-wide uppercase">${p.category || "عام"}</p>
-                <h4 class="font-bold text-slate-800 text-sm mb-2 leading-tight group-hover:text-emerald-700 transition-colors">${p.name}</h4>
+                <h4 class="font-bold text-slate-800 text-xs sm:text-sm mb-2 leading-tight group-hover:text-emerald-700 transition-colors line-clamp-2 min-h-[2.5rem]">${p.name}</h4>
                 
-                <div class="bg-slate-50/80 p-3 rounded-[1.5rem] border border-slate-100/60 mb-3 shadow-sm">
-                    <div class="flex items-center justify-between text-[11px] mb-2.5 pb-2 border-b border-slate-200/50">
+                <div class="bg-slate-50/80 p-2 sm:p-3 rounded-2xl sm:rounded-[1.5rem] border border-slate-100/60 mb-3 shadow-sm">
+                    <div class="flex items-center justify-between text-[9px] sm:text-[11px] mb-2 pb-2 border-b border-slate-200/50">
                         <span class="flex items-center gap-1.5 font-mono text-slate-500"><i data-lucide="tag" class="w-3.5 h-3.5 text-slate-400"></i> ${p.sku || "---"}</span>
                         <span class="flex items-center gap-1.5 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100/50">${p.unitMeasurement || "متوفر"}</span>
                     </div>
-                    <div class="product-price-wrapper min-h-[50px] flex items-center justify-center">
+                    <div class="product-price-wrapper min-h-[40px] sm:min-h-[50px] flex items-center justify-center">
                         ${priceBlock}
                     </div>
                 </div>
 
-                <div class="mt-4 flex items-center gap-2.5">
+                <div class="mt-2 sm:mt-4 flex items-center gap-2">
                     <div class="flex-[1.2] flex items-center bg-slate-50/80 rounded-[1.25rem] border border-slate-100 p-1">
                         <button onclick="const inp=this.nextElementSibling; inp.stepUp();" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all active:scale-95">+</button>
                         <input type="number" id="qty-${p.id}" value="1" min="1" class="w-full bg-transparent text-center text-sm font-black text-slate-800 outline-none">
-                        <button onclick="const inp=this.previousElementSibling; inp.stepDown();" class="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all active:scale-95">-</button>
+                        <button onclick="const inp=this.previousElementSibling; inp.stepDown();" class="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all active:scale-95 px-2.5">-</button>
                     </div>
                     
                     <button 
                         onclick="window.addToCart('${p.id}', '${safeName}', ${defaultPrice}, 'bag')"
                         data-id="${p.id}"
-                        class="add-to-cart-btn p-4 bg-[#1B4332] text-white rounded-[1.25rem] shadow-xl shadow-emerald-100 hover:bg-[#2D6A4F] hover:shadow-2xl hover:scale-105 active:scale-90 transition-all duration-300 ${isOutOfStock ? "grayscale cursor-not-allowed" : ""}"
+                        class="add-to-cart-btn p-3 sm:p-4 bg-[#1B4332] text-white rounded-2xl sm:rounded-[1.25rem] shadow-xl shadow-emerald-100 hover:bg-[#2D6A4F] active:scale-90 transition-all duration-300 ${isOutOfStock ? "grayscale cursor-not-allowed" : ""}"
                         ${isOutOfStock ? "disabled" : ""}
                     >
                         <i data-lucide="shopping-cart" class="w-5 h-5"></i>
