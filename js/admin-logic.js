@@ -295,11 +295,11 @@ export function renderAdminProducts() {
     <div class="col-span-full bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between mb-4">
       <div class="flex items-center gap-3">
         <i data-lucide="package" class="w-6 h-6 text-emerald-600"></i>
-        <p class="font-black text-slate-800 text-sm">إجمالي المنتجات: <span class="text-emerald-600">${productsCount}</span></p>
+        <p class="font-black text-slate-800 text-sm">إجمالي المنتجات: <span id="admin-products-count" class="text-emerald-600">${productsCount}</span></p>
       </div>
       <div class="flex items-center gap-3">
         <i data-lucide="folder" class="w-6 h-6 text-blue-600"></i>
-        <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span class="text-blue-600">${categoriesCount}</span></p>
+        <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span id="admin-categories-count" class="text-blue-600">${categoriesCount}</span></p>
       </div>
     </div>
     ${addBtn}
@@ -307,6 +307,23 @@ export function renderAdminProducts() {
   `;
   if (window.lucide) lucide.createIcons();
 }
+window.renderAdminProducts = renderAdminProducts;
+
+/**
+ * تحديث الإحصائيات فقط (العدادات) دون رندرة كاملة للأصناف لضمان السرعة
+ */
+export function updateAdminStats() {
+    const pCountSpan = document.getElementById("admin-products-count");
+    const cCountSpan = document.getElementById("admin-categories-count");
+    
+    if (pCountSpan) {
+        pCountSpan.innerText = window.products ? window.products.length : 0;
+    }
+    if (cCountSpan) {
+        cCountSpan.innerText = window.categories ? window.categories.length : 0;
+    }
+}
+window.updateAdminStats = updateAdminStats;
 
 export function renderAdminCategories() {
   const list = document.getElementById("admin-c-list");
@@ -404,8 +421,8 @@ export function showAdminSubTab(tab) {
 
   if (tab === "i") renderInventoryAudit();
   if (tab === "import") renderAdminImportTools();
-  if (tab === "p" && typeof window.renderAdminProducts === "function")
-    window.renderAdminProducts();
+  if (tab === "p" && typeof renderAdminProducts === "function")
+    renderAdminProducts();
   if (tab === "c" && typeof renderAdminCategories === "function")
     renderAdminCategories();
   if (tab === "bot" && typeof window.renderBotResponses === "function")
@@ -497,6 +514,8 @@ export async function smartRowBasedUpdate(rows) {
   let updated = 0;
   let created = 0;
 
+  window.isBulkUploading = true; // تفعيل وضع الرفع لمنع الرندرة المتكررة للواجهة
+  
   // 1. تجميد نسخة من المنتجات الموجودة في لحظة البدء (snapshot)
   // هذا يمنع تداخل Firebase Listener مع عملية المطابقة أثناء رفع الآلاف
   const existingProductsSnapshot = [...(window.products || [])];
@@ -620,6 +639,10 @@ export async function smartRowBasedUpdate(rows) {
     window.showNotification("جاري حفظ آخر دفعة...");
     await batch.commit();
   }
+  
+  window.isBulkUploading = false; // إنهاء وضع الرفع
+  // إعادة رندرة الواجهة مرة واحدة بعد الانتهاء
+  if (typeof window.renderAdminProducts === "function") window.renderAdminProducts(); 
   window.showToast(`✅ تم إضافة ${created} منتج جديد | 🔄 تحديث ${updated} منتج موجود`, "success", 8000);
 }
 

@@ -498,8 +498,14 @@ function listenToProducts() {
     }
     
     if (document.body.classList.contains("is-admin")) {
-        if (typeof Admin?.renderAdminProducts === "function") Admin.renderAdminProducts();
-        if (typeof Admin?.renderInventoryAudit === "function") Admin.renderInventoryAudit();
+        // تحديث العدادات الذكية فوراً دون انتظار الرندرة الثقيلة
+        if (typeof window.updateAdminStats === "function") window.updateAdminStats();
+        
+        // منع الرندرة الكاملة للبطاقات إذا كنا في وضع الرفع الضخم لمنع تهنيج الصفحة
+        if (!window.isBulkUploading) {
+            if (typeof Admin?.renderAdminProducts === "function") Admin.renderAdminProducts();
+            if (typeof Admin?.renderInventoryAudit === "function") Admin.renderInventoryAudit();
+        }
     }
     if (
       window.currentUserRole === "admin" &&
@@ -532,6 +538,9 @@ function listenToCategories() {
     // تحديث القوائم المنسدلة للمدير
     if (typeof Admin?.updateCategorySelects === "function")
       Admin.updateCategorySelects();
+
+    // تحديث العدادات
+    if (typeof window.updateAdminStats === "function") window.updateAdminStats();
 
     if (
       document.body.classList.contains("is-admin") &&
