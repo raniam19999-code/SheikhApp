@@ -594,21 +594,40 @@ export async function smartRowBasedUpdate(rows) {
       }
       // إذا لم يوجد كود → لا نحاول المطابقة بالاسم المعقد → create مباشرة
 
+      let addedToBatch = false;
+
       if (product) {
-        // ✏️ تحديث المنتج الحالي (منع التكرار)
-        const docRef = window.firestoreUtils.doc(productsRef, product.id || product.originalId);
-        batch.update(docRef, {
-          name: fullName || product.name,
-          sku: sku || product.sku,
-          price: price || product.price,
-          quantity: qty || product.quantity || 0,
-          category: rowCategory,
-          categoryId: rowCatId,
-          "prices.bag": price || product.price,
-          "availableUnits.bag": true,
-          updatedAt: window.firestoreUtils.serverTimestamp()
-        });
-        updated++;
+        // ✏️ تحديث المنتج الحالي (منع التكرار ولكن فقط عند وجود تغييرات فعلية)
+        const nName = fullName || product.name;
+        const nSku = sku || product.sku;
+        const nPrice = price || product.price;
+        const nQty = qty !== undefined ? qty : (product.quantity || 0);
+
+        let hasChanges = false;
+        if (product.name !== nName) hasChanges = true;
+        if (String(product.sku) !== String(nSku)) hasChanges = true;
+        if (Number(product.price) !== Number(nPrice)) hasChanges = true;
+        if (Number(product.quantity || 0) !== Number(nQty)) hasChanges = true;
+        if (rowCategory && product.category !== rowCategory) hasChanges = true;
+        if (rowCatId && product.categoryId !== rowCatId) hasChanges = true;
+        if (!product.prices || Number(product.prices.bag) !== Number(nPrice)) hasChanges = true;
+
+        if (hasChanges) {
+          const docRef = window.firestoreUtils.doc(productsRef, product.id || product.originalId);
+          batch.update(docRef, {
+            name: nName,
+            sku: nSku,
+            price: nPrice,
+            quantity: nQty,
+            category: rowCategory || product.category,
+            categoryId: rowCatId || product.categoryId,
+            "prices.bag": nPrice,
+            "availableUnits.bag": true,
+            updatedAt: window.firestoreUtils.serverTimestamp()
+          });
+          updated++;
+          addedToBatch = true;
+        }
       } else {
         const newDoc = window.firestoreUtils.doc(productsRef);
         batch.set(newDoc, {
@@ -624,13 +643,18 @@ export async function smartRowBasedUpdate(rows) {
           updatedAt: window.firestoreUtils.serverTimestamp()
         });
         created++;
+        addedToBatch = true;
       }
 
-      opCount++;
-      if (opCount >= 450) { // تأمين قبل الوصول للحد الأقصى 500
-        await batch.commit();
-        batch = window.firestoreUtils.writeBatch(window.db);
-        opCount = 0;
+      if (addedToBatch) {
+        opCount++;
+        if (opCount >= 450) { // تأمين قبل الوصول للحد الأقصى 500
+          await batch.commit();
+          // الانتظار قليلاً لمنع إرهاق الخادم (Quota Exhaustion)
+          await new Promise(resolve => setTimeout(resolve, 500));
+          batch = window.firestoreUtils.writeBatch(window.db);
+          opCount = 0;
+        }
       }
     } catch (e) { console.error("Row error:", e, row); }
   }
@@ -1077,22 +1101,26 @@ export async function saveBulkPriceUpdates() {
           percentage !== 0 ? priceVal * (1 + percentage / 100) : priceVal;
         const updatedPrice = Number(finalPrice.toFixed(2));
 
-        const docRef = window.firestoreUtils.doc(productsRef, p.id);
-        // استخدام dot notation لضمان تحديث الحقول دون مسح البيانات الأخرى
-        const updatePayload = {};
-        updatePayload.price = updatedPrice;
-        updatePayload["prices.bag"] = updatedPrice;
-        updatePayload["availableUnits.bag"] = true;
-        updatePayload["updatedAt"] = window.firestoreUtils.serverTimestamp();
+        // التحقق من أن السعر قد تغير فعلاً قبل استهلاك حصة Firebase المجانية
+        if (Number(p.price) !== updatedPrice || (!p.prices || Number(p.prices.bag) !== updatedPrice)) {
+          const docRef = window.firestoreUtils.doc(productsRef, p.id);
+          // استخدام dot notation لضمان تحديث الحقول دون مسح البيانات الأخرى
+          const updatePayload = {};
+          updatePayload.price = updatedPrice;
+          updatePayload["prices.bag"] = updatedPrice;
+          updatePayload["availableUnits.bag"] = true;
+          updatePayload["updatedAt"] = window.firestoreUtils.serverTimestamp();
 
-        batch.update(docRef, updatePayload);
-        updateCount++;
-        opCount++;
+          batch.update(docRef, updatePayload);
+          updateCount++;
+          opCount++;
 
-        if (opCount >= 450) {
-          await batch.commit();
-          batch = window.firestoreUtils.writeBatch(window.db);
-          opCount = 0;
+          if (opCount >= 450) {
+            await batch.commit();
+            await new Promise(resolve => setTimeout(resolve, 500)); // تأخير بسيط لحماية الخادم
+            batch = window.firestoreUtils.writeBatch(window.db);
+            opCount = 0;
+          }
         }
       } else {
         notFoundCount++;
@@ -1110,17 +1138,19 @@ export async function saveBulkPriceUpdates() {
       const oldPrice = parseFloat(p.price || 0);
       const newPrice = Number((oldPrice * (1 + percentage / 100)).toFixed(2));
 
-      // التحديث حتى لو كان السعر متطابقاً لضمان استجابة النظام لطلبك
-      if (!isNaN(newPrice)) {
+      // التحديث فقط في حال تغير السعر لمنع استهلاك الباقة
+      if (!isNaN(newPrice) && (Number(p.price) !== newPrice || (!p.prices || Number(p.prices.bag) !== newPrice))) {
         batch.update(window.firestoreUtils.doc(productsRef, p.id), {
           price: newPrice,
           "prices.bag": newPrice,
+          updatedAt: window.firestoreUtils.serverTimestamp()
         });
         updateCount++;
         opCount++;
 
         if (opCount >= 450) {
           await batch.commit();
+          await new Promise(resolve => setTimeout(resolve, 500)); // تأخير بسيط لحماية الخادم
           batch = window.firestoreUtils.writeBatch(window.db);
           opCount = 0;
         }
