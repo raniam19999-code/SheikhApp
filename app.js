@@ -156,8 +156,10 @@ window.renderCategories = function () {
     return;
   }
 
-  // تصفية الأقسام للمستوى الرئيسي (فقط إذا كنا في الصفحة الرئيسية)
-  const mainCats = window.categories.filter((c) => !c.parentId);
+  // تصفية الأقسام للمستوى الرئيسي والترتيب الأبجدي
+  const mainCats = window.categories
+    .filter((c) => !c.parentId)
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
   
   let html = "";
 
@@ -244,6 +246,9 @@ window.renderProducts = function (productsToRender = window.products) {
     if (loadMoreBtn) loadMoreBtn.classList.add("hidden");
     return;
   }
+
+  // الترتيب الأبجدي للمنتجات
+  productsToRender.sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
 
   // تطبيق الحد الأقصى للعرض
   const visibleProducts = productsToRender.slice(0, window.currentRenderLimit);
@@ -342,7 +347,9 @@ window.renderSubcategoriesInMainGrid = function(parentId = null) {
           }
       }
   } else { // A parent category is selected, show its direct subcategories
-      subCats = window.categories.filter(c => c.parentId === parentId);
+      subCats = window.categories
+        .filter(c => c.parentId === parentId)
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
       const parentCat = window.categories.find(c => c.id === parentId);
       displayTitle = parentCat ? parentCat.name : "الأقسام الفرعية";
   }

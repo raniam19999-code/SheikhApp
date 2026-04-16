@@ -261,15 +261,51 @@ export function renderAdminProducts() {
   const productsCount = window.products ? window.products.length : 0;
   const categoriesCount = window.categories ? window.categories.length : 0;
 
-  const addBtn = `<button onclick="openProductModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all">+ إضافة منتج جديد</button>`;
+  // تحضير قائمة الأقسام الفرعية للنقل الجماعي مع ترتيبها أبجدياً
+  const sortedSubCats = [...(window.categories || [])]
+    .filter(c => c.parentId)
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
+
+  const catOptions = sortedSubCats.map(c => {
+    const parent = (window.categories || []).find(p => p.id === c.parentId);
+    return `<option value="${c.id}">${parent ? parent.name + ' » ' : ''}${c.name}</option>`;
+  }).join("");
+
+  const bulkActions = `
+    <div class="col-span-full flex flex-wrap items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-2 gap-3">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="select-all-products" onclick="window.toggleSelectAllProducts(this.checked)" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+        <label for="select-all-products" class="text-xs font-bold text-slate-600 cursor-pointer">تحديد الكل</label>
+      </div>
+      <div id="bulk-tools" class="hidden flex items-center gap-2">
+        <select id="bulk-move-cat-select" class="text-[10px] p-2 rounded-xl border border-slate-200 outline-none focus:border-emerald-500 max-w-[150px]">
+          <option value="">نقل للقسم...</option>
+          ${catOptions}
+        </select>
+        <button onclick="window.moveSelectedToCategory()" class="text-[10px] bg-emerald-600 text-white px-3 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-all">نقل</button>
+        <div class="w-px h-6 bg-slate-200 mx-1"></div>
+        <button onclick="window.deleteSelectedProducts()" class="text-[10px] bg-red-50 text-red-600 px-3 py-2 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition-all flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3 h-3"></i> حذف المحدد
+        </button>
+      </div>
+    </div>`;
+
+  const addBtn = `<button onclick="openProductModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all mb-4">+ إضافة منتج جديد</button>`;
 
   const products = window.products || [];
-  let html = products
+  
+  // الترتيب الأبجدي للمنتجات في لوحة الإدارة
+  const sortedProducts = [...products].sort((a, b) => 
+    (a.name || "").localeCompare(b.name || "", 'ar')
+  );
+
+  let html = sortedProducts
     .map(
       (p) => `
-    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group">
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0]">
+        <input type="checkbox" name="product-checkbox" value="${p.id}" onchange="window.updateBulkDeleteButton()" class="product-item-checkbox w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+        <div class="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0]">
           <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover">
         </div>
         <div>
@@ -302,6 +338,7 @@ export function renderAdminProducts() {
         <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span id="admin-categories-count" class="text-blue-600">${categoriesCount}</span></p>
       </div>
     </div>
+    ${bulkActions}
     ${addBtn}
     ${html}
   `;
@@ -329,8 +366,12 @@ export function renderAdminCategories() {
   const list = document.getElementById("admin-c-list");
   if (!list) return;
 
-  const categories = window.categories || [];
-  let html = categories
+  // الترتيب الأبجدي للأقسام في لوحة الإدارة
+  const sortedCategories = [...(window.categories || [])].sort((a, b) => 
+    (a.name || "").localeCompare(b.name || "", 'ar')
+  );
+
+  let html = sortedCategories
     .map(
       (c) => `
     <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
@@ -374,6 +415,78 @@ export async function deleteProduct(id) {
   }
 }
 window.deleteProduct = deleteProduct;
+
+window.toggleSelectAllProducts = function(checked) {
+  const checkboxes = document.querySelectorAll('input[name="product-checkbox"]');
+  checkboxes.forEach(cb => cb.checked = checked);
+  window.updateBulkDeleteButton();
+};
+
+window.updateBulkDeleteButton = function() {
+  const selected = document.querySelectorAll('input[name="product-checkbox"]:checked').length;
+  const tools = document.getElementById("bulk-tools");
+  if (tools) tools.classList.toggle("hidden", selected === 0);
+};
+
+window.moveSelectedToCategory = async function() {
+  const selectedCheckboxes = document.querySelectorAll('input[name="product-checkbox"]:checked');
+  const targetCatId = document.getElementById("bulk-move-cat-select").value;
+  
+  if (selectedCheckboxes.length === 0) return;
+  if (!targetCatId) return window.showToast("يرجى اختيار القسم أولاً", "warning");
+
+  const targetCat = window.categories.find(c => c.id === targetCatId);
+  if (!targetCat) return;
+
+  if (!confirm(`هل أنت متأكد من نقل ${selectedCheckboxes.length} منتج إلى قسم "${targetCat.name}"؟`)) return;
+
+  window.showNotification("جاري نقل المنتجات...");
+  const batch = window.firestoreUtils.writeBatch(window.db);
+  const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
+
+  selectedCheckboxes.forEach(cb => {
+    const docRef = window.firestoreUtils.doc(productsRef, cb.value);
+    batch.update(docRef, {
+      categoryId: targetCatId,
+      category: targetCat.name,
+      updatedAt: window.firestoreUtils.serverTimestamp()
+    });
+  });
+
+  try {
+    await batch.commit();
+    window.showToast(`تم نقل ${selectedCheckboxes.length} منتج بنجاح`, "success");
+    document.getElementById("select-all-products").checked = false;
+    window.updateBulkDeleteButton();
+  } catch (e) {
+    window.showToast("فشل في نقل المنتجات", "error");
+  }
+};
+
+window.deleteSelectedProducts = async function() {
+  const selectedCheckboxes = document.querySelectorAll('input[name="product-checkbox"]:checked');
+  if (selectedCheckboxes.length === 0) return;
+
+  if (!confirm(`هل أنت متأكد من حذف ${selectedCheckboxes.length} منتج؟`)) return;
+
+  window.showNotification("جاري حذف المنتجات المحددة...");
+  const batch = window.firestoreUtils.writeBatch(window.db);
+  const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
+
+  selectedCheckboxes.forEach(cb => {
+    const docRef = window.firestoreUtils.doc(productsRef, cb.value);
+    batch.delete(docRef);
+  });
+
+  try {
+    await batch.commit();
+    window.showToast(`تم حذف ${selectedCheckboxes.length} منتج بنجاح`, "success");
+    document.getElementById("select-all-products").checked = false;
+    window.updateBulkDeleteButton();
+  } catch (e) {
+    window.showToast("فشل في حذف بعض المنتجات", "error");
+  }
+};
 
 export async function deleteCategory(id) {
   if (
@@ -513,6 +626,7 @@ export async function smartRowBasedUpdate(rows) {
   let opCount = 0; // عداد للعمليات داخل الباتش الحالي
   let updated = 0;
   let created = 0;
+  let skipped = 0;
 
   window.isBulkUploading = true; // تفعيل وضع الرفع لمنع الرندرة المتكررة للواجهة
   
@@ -544,39 +658,26 @@ export async function smartRowBasedUpdate(rows) {
       const sku = String(findValByParts(r, ["كود", "SKU", "code", "ID", "باركود"])).trim();
       let price = parseExcelNumber(findValByParts(r, ["السعر", "جملة", "بيع", "Price", "100", "101", "102", "103"]));
 
-      if (!price || price <= 0) {
-        for (const val of values) {
-          const num = parseExcelNumber(val);
-          if (num > 0 && num < 100000) { price = num; break; }
-        }
-      }
-
       let qty = parseExcelNumber(findValByParts(r, ["كمية", "الكمية", "Stock"])) || 0;
 
-      const nameParts = values.filter(v => {
-        const isNumeric = /^\d+(\.\d+)?$/.test(v);
-        const isPrice = !isNaN(parseExcelNumber(v)) && parseExcelNumber(v) > 0 && parseExcelNumber(v) < 100000;
-        return v && !isNumeric && !isPrice && v.length > 1;
-      });
+      // 🎯 استخراج الاسم: نأخذ الخانة كاملة كما هي لضمان التميز بين الأوزان (250، 500، إلخ)
+      let fullName = String(findValByParts(r, ["الصنف", "الاسم", "البيان", "المنتج", "Item Name"]) || "").trim();
       
-      let fullName = nameParts.join(" ").replace(/\s+/g, " ").trim();
-      // إذا وجدنا عمود صريح للاسم، نستخدمه لضمان الدقة
-      const explicitName = String(findValByParts(r, ["الصنف", "الاسم", "البيان"])).trim();
-      if (explicitName && explicitName.length > 2) fullName = explicitName;
+      // إذا لم يوجد عمود مسمى، نبحث عن أول نص طويل في الصف
+      if (!fullName || fullName.length < 2) {
+          fullName = values.find(v => v.length > 3 && isNaN(parseExcelNumber(v))) || "";
+      }
 
-      // استخراج القسم من الصف أو استخدامه من البيانات الممررة (حل مشكلة الأقسام الفرعية)
-      // ملاحظة: saveBulkProducts بتمرر البيانات بمفاتيح "Category" و "categoryId"
-      const rowCategory = r["Category"] || findValByParts(r, ["القسم", "المجموعة", "التصنيف", "Category"]) || "عام";
-      const rowCatId = r["categoryId"] || "";
+      // تأمين قيم القسم لتجنب أخطاء undefined
+      const rowCategory = String(r["Category"] || findValByParts(r, ["القسم", "المجموعة", "التصنيف"]) || "عام");
+      const rowCatId = (r["categoryId"] || r["catId"]) ? String(r["categoryId"] || r["catId"]) : null;
 
       if (!fullName && !sku) continue;
 
       // 3. المطابقة: هل المنتج موجود؟
-      // ⚡ القاعدة: الأسماء معقدة ومتغيرة (مثل "جبن دومتي رومي *500*27")
-      //    لذلك نعتمد على الكود (SKU) فقط للمطابقة
-      //    إذا لم يوجد كود → نُضيف دائماً كمنتج جديد
       const normSku = normalizeArabic(sku);
       const cleanSku = normSku.replace(/^0+/, '');
+      const normName = normalizeArabic(fullName);
 
       let product = null;
 
@@ -592,7 +693,11 @@ export async function smartRowBasedUpdate(rows) {
           });
         }
       }
-      // إذا لم يوجد كود → لا نحاول المطابقة بالاسم المعقد → create مباشرة
+
+      // حل مشكلة التكرار: إذا لم نجد تطابق بالكود، نبحث بالاسم المنظف
+      if (!product && normName) {
+        product = productMap.get(normName);
+      }
 
       let addedToBatch = false;
 
@@ -614,32 +719,35 @@ export async function smartRowBasedUpdate(rows) {
 
         if (hasChanges) {
           const docRef = window.firestoreUtils.doc(productsRef, product.id || product.originalId);
-          batch.update(docRef, {
-            name: nName,
-            sku: nSku,
-            price: nPrice,
-            quantity: nQty,
-            category: rowCategory || product.category,
-            categoryId: rowCatId || product.categoryId,
-            "prices.bag": nPrice,
+          const updateData = {
+            name: String(nName || ""),
+            sku: String(nSku || ""),
+            price: Number(nPrice || 0),
+            quantity: Number(nQty || 0),
+            category: String(rowCategory || product.category || "عام"),
+            categoryId: rowCatId || product.categoryId || null,
+            "prices.bag": Number(nPrice || 0),
             "availableUnits.bag": true,
             updatedAt: window.firestoreUtils.serverTimestamp()
-          });
+          };
+          batch.update(docRef, updateData);
           updated++;
           addedToBatch = true;
+        } else {
+          skipped++;
         }
       } else {
         const newDoc = window.firestoreUtils.doc(productsRef);
         batch.set(newDoc, {
-          name: fullName,
-          sku: sku,
-          price: price,
-          quantity: qty,
-          prices: { bag: price },
+          name: String(fullName || ""),
+          sku: String(sku || ""),
+          price: Number(price || 0),
+          quantity: Number(qty || 0),
+          prices: { bag: Number(price || 0) },
           availableUnits: { bag: true },
-          category: rowCategory,
-          categoryId: rowCatId,
-          status: qty > 0 ? "available" : "out_of_stock",
+          category: String(rowCategory || "عام"),
+          categoryId: rowCatId || null,
+          status: Number(qty) > 0 ? "available" : "out_of_stock",
           updatedAt: window.firestoreUtils.serverTimestamp()
         });
         created++;
@@ -648,7 +756,7 @@ export async function smartRowBasedUpdate(rows) {
 
       if (addedToBatch) {
         opCount++;
-        if (opCount >= 450) { // تأمين قبل الوصول للحد الأقصى 500
+        if (opCount >= 300) { // تقليل حجم الدفعة لضمان الاستقرار كما طلبت
           await batch.commit();
           // الانتظار قليلاً لمنع إرهاق الخادم (Quota Exhaustion)
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -665,7 +773,7 @@ export async function smartRowBasedUpdate(rows) {
   window.isBulkUploading = false; // إنهاء وضع الرفع
   // إعادة رندرة الواجهة مرة واحدة بعد الانتهاء
   if (typeof window.renderAdminProducts === "function") window.renderAdminProducts(); 
-  window.showToast(`✅ تم إضافة ${created} منتج جديد | 🔄 تحديث ${updated} منتج موجود`, "success", 8000);
+  window.showToast(`✅ إضافة: ${created} | 🔄 تحديث: ${updated} | ⏩ تخطي: ${skipped}`, "success", 8000);
 }
 
 // استبدال الدالة القديمة بالدالة الذكية الجديدة
@@ -1012,6 +1120,7 @@ export async function saveBulkPriceUpdates() {
     "products",
   );
   let updateCount = 0;
+  let skippedCount = 0;
   let notFoundCount = 0;
 
   // 🧠 بناء فهرس ذكي (Map) لكافة المنتجات لضمان السرعة القصوى (O(1)) مع الـ 2000 صنف
@@ -1030,9 +1139,6 @@ export async function saveBulkPriceUpdates() {
   if (products.length === 0) {
     return window.showToast("لا توجد منتجات محملة، يرجى الانتظار ثم المحاولة مجدداً", "warning");
   }
-  if (products.length < 100) {
-    window.showToast(`⚠️ تحذير: تم تحميل ${products.length} منتج فقط، قد لا تطابق كل الأسعار`, "warning");
-  }
 
   // الحالة الأولى: تحديث عبر النص الملصق أو الملف المرفوع
   if (rawData) {
@@ -1041,30 +1147,22 @@ export async function saveBulkPriceUpdates() {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
 
-      // تقسيم السطر مع دعم التبويبات، الفواصل، أو الخطوط الرأسية المستخدمة في الإكسل
-      let parts = trimmedLine.split(/[|\t,]/).map(s => s.trim()).filter(Boolean);
-      
-      if (parts.length < 2) continue;
-
-      // تعريف المتغيرات بوضوح في بداية الحلقة لمنع خطأ ReferenceError وضمان استمرار العملية
       let identifier = "";
-      let priceVal = NaN;
-      let newName = null;
-      let newSku = null;
+      let priceVal = 0;
 
-      // استخراج السعر بذكاء: نبحث عن آخر رقم في السطر (غالباً هو السعر) 
-      for (let j = parts.length - 1; j >= 1; j--) {
-          const val = parseExcelNumber(parts[j]);
-          if (!isNaN(val) && val > 0 && val < 100000) { 
-              priceVal = val;
-              identifier = parts.slice(0, j).join(" "); 
-              break;
-          }
-      }
-
-      if (isNaN(priceVal)) {
-          identifier = parts[0];
-          priceVal = parseExcelNumber(parts[1]);
+      // أخذ الاسم كامل والتعامل مع الفواصل بدقة لضمان عدم ضياع أي جزء من اسم الصنف
+      if (trimmedLine.includes('|')) {
+        const pArr = trimmedLine.split('|').map(s => s.trim());
+        identifier = pArr[0];
+        priceVal = parseExcelNumber(pArr[1]);
+      } else if (trimmedLine.includes('\t')) {
+        const pArr = trimmedLine.split('\t').map(s => s.trim());
+        identifier = pArr[0];
+        priceVal = parseExcelNumber(pArr[1]);
+      } else {
+        const parts = trimmedLine.split(/\s{2,}/).map(s => s.trim());
+        identifier = parts[0];
+        priceVal = parseExcelNumber(parts[1] || parts[parts.length - 1]);
       }
 
       if (isNaN(priceVal) || priceVal <= 0) continue; 
@@ -1080,20 +1178,15 @@ export async function saveBulkPriceUpdates() {
           p = products.find(x => {
               const dbSku = normalizeArabic(x.sku || "").trim();
               const dbName = normalizeArabic(x.name || "").trim();
-              return (
-                  (dbSku && (dbSku === normalizedIdentifier || dbSku.replace(/^0+/, '') === cleanIdentifier)) ||
-                  (dbName && (normalizedIdentifier.includes(dbName) || dbName.includes(normalizedIdentifier)))
-              );
+              // مطابقة صارمة 100%: الكود يطابق الكود أو الاسم يطابق الاسم بالكامل
+              const skuMatch = dbSku && (dbSku === normalizedIdentifier || (cleanIdentifier && dbSku.replace(/^0+/, '') === cleanIdentifier));
+              const nameMatch = dbName && (dbName === normalizedIdentifier);
+              return skuMatch || nameMatch;
           });
       }
 
       if (p) {
         const pCat = normalizeArabic(p.category || "");
-        
-        // تحسين الفلترة: إذا تم اختيار قسم معين، نحدثه فقط. إذا لم يتم الاختيار، نحدث كل ما طابق في الشيت
-        if (catId && catId !== "" && catId !== "none") {
-           if (pCat !== targetCategoryName) continue;
-        }
         
         if (catId === "none" && pCat !== "" && pCat !== "عام") continue;
 
@@ -1115,12 +1208,14 @@ export async function saveBulkPriceUpdates() {
           updateCount++;
           opCount++;
 
-          if (opCount >= 450) {
+          if (opCount >= 300) { // تقسيم العمليات لضمان عدم التهنيج
             await batch.commit();
             await new Promise(resolve => setTimeout(resolve, 500)); // تأخير بسيط لحماية الخادم
             batch = window.firestoreUtils.writeBatch(window.db);
             opCount = 0;
           }
+        } else {
+          skippedCount++;
         }
       } else {
         notFoundCount++;
