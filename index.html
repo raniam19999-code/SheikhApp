@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta
+    
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
@@ -1287,8 +1288,8 @@
       >
         <div class="flex justify-between items-center mb-2">
           <h3 class="font-black text-xl flex items-center gap-2 text-slate-800">
-            <i data-lucide="download-cloud" class="w-6 h-6 text-blue-500"></i>
-            استيراد منتجات من جدول
+            <i data-lucide="zap" class="w-6 h-6 text-blue-500"></i>
+            إضافة سريعة بكلمات مفتاحية
           </h3>
           <button
             onclick="closeBulkImportModal()"
@@ -1297,22 +1298,70 @@
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
-        <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mb-2">
-          <label class="text-[11px] font-black text-blue-700 mb-1.5 block">1. اختر القسم الفرعي المستهدف</label>
-          <select id="bulk-import-cat" class="w-full p-4 bg-white rounded-2xl outline-none border border-blue-200 focus:border-blue-500 font-bold text-sm text-slate-700 shadow-sm">
+
+        <!-- خطوة 1: رفع الملف -->
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+          <label class="text-[11px] font-black text-blue-700 mb-3 block">
+            <span class="bg-blue-600 text-white rounded-full px-2 py-0.5 text-[10px] font-black ml-1">1</span>
+            ارفع ملف الإكسل الكبير أولاً
+          </label>
+          <button
+            type="button"
+            onclick="document.getElementById('bulk-import-file').click()"
+            class="w-full bg-slate-900 text-white py-3.5 rounded-2xl font-black shadow-lg hover:bg-slate-800 transition-colors text-sm flex justify-center items-center gap-2"
+          >
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+            <span id="bulk-import-file-label">رفع ملف إكسل (xlsx / xls)</span>
+          </button>
+          <input
+            type="file"
+            id="bulk-import-file"
+            accept=".xlsx,.xls,.csv"
+            class="hidden"
+            onchange="handleBulkImportFileUpload(event); document.getElementById('bulk-import-file-label').textContent = 'تم التحميل ✅ — ارفع ملفاً آخر للاستبدال'"
+          />
+          <p class="text-[10px] text-blue-500 mt-2 font-semibold text-center">
+            💡 يمكنك رفع نفس الملف الكبير (1500+ صنف) ثم تصفيته بالكلمات المفتاحية
+          </p>
+        </div>
+
+        <!-- خطوة 2: اختيار القسم -->
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <label class="text-[11px] font-black text-slate-700 mb-1.5 block">
+            <span class="bg-slate-700 text-white rounded-full px-2 py-0.5 text-[10px] font-black ml-1">2</span>
+            اختر القسم الفرعي المستهدف
+          </label>
+          <select id="bulk-import-cat" class="w-full p-4 bg-white rounded-2xl outline-none border border-slate-200 focus:border-blue-500 font-bold text-sm text-slate-700 shadow-sm">
             <option value="">-- تحميل في قسم عام --</option>
           </select>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- خطوة 3: الكلمات المفتاحية -->
+        <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+          <label class="text-[11px] font-black text-amber-700 mb-1.5 block">
+            <span class="bg-amber-500 text-white rounded-full px-2 py-0.5 text-[10px] font-black ml-1">3</span>
+            الكلمات المفتاحية للتصفية (مفصولة بفاصلة) — اتركها فارغة لرفع الكل
+          </label>
+          <input
+            type="text"
+            id="bulk-keywords"
+            placeholder="مثال: سمنه, جبنه, روابي, نعمه"
+            class="w-full p-4 bg-white rounded-xl outline-none border border-amber-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 font-bold text-slate-800 shadow-sm"
+          />
+          <p class="text-[10px] text-amber-600 mt-2 font-semibold">
+            سيتم استخراج الأصناف التي يحتوي اسمها على إحدى هذه الكلمات فقط. تركها فارغة = رفع جميع صفوف الملف.
+          </p>
+        </div>
+
+        <!-- خيارات إضافية -->
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
-              >وحدة القياس</label
-            >
+            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">وحدة القياس</label>
             <select
               id="bulk-unit"
               class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-300 focus:ring-4 focus:ring-blue-50 font-bold text-sm text-slate-700"
             >
-              <option value="كيس">كيس & شنطة</option>
+              <option value="كيس">كيس &amp; شنطة</option>
               <option value="قطعة">قطعة</option>
               <option value="علبة">علبة</option>
               <option value="كرتونة">كرتونة</option>
@@ -1322,10 +1371,8 @@
               <option value="رابطة">رابطة (Bundle)</option>
             </select>
           </div>
-          <div class="md:col-span-2">
-            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
-              >الكميات المتاحة (مفصولة بفاصلة)</label
-            >
+          <div>
+            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">الكميات المتاحة (مفصولة بفاصلة)</label>
             <input
               type="text"
               id="bulk-quantities"
@@ -1336,63 +1383,34 @@
           </div>
         </div>
 
-        <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-          <label class="text-[11px] font-bold text-blue-700 mb-1.5 block"
-            >الكلمات الدالة لسحب الأصناف (مفصولة بفاصلة)</label
-          >
-          <input
-            type="text"
-            id="bulk-keywords"
-            placeholder="مثال: سمنه, سمنة, روابي"
-            class="w-full p-4 bg-white rounded-xl outline-none border border-transparent focus:border-blue-400 focus:ring-4 focus:ring-blue-100 font-bold text-slate-800 shadow-sm"
-          />
-          <p class="text-[10px] text-blue-500 mt-2 font-semibold">
-            سيتم استخراج الأصناف من الشيت التي تحتوي على إحدى هذه الكلمات فقط
-            وإضافتها للملف.
-          </p>
-        </div>
-
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
-            >ألصق بيانات الجدول هنا أو ارفع ملف</label
-          >
-          <textarea
-            id="bulk-sheet-data"
-            placeholder="مثال: الكود,الاسم,السعر أو الاسم,السعر"
-            rows="6"
-            class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-blue-300 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800 resize-none"
-            dir="ltr"
-          ></textarea>
-        </div>
-
-        <div class="flex gap-3 flex-col sm:flex-row">
-          <button
-            type="button"
-            onclick="document.getElementById('bulk-import-file').click()"
-            class="w-full bg-slate-900 text-white py-3 rounded-2xl font-black shadow-xl shadow-slate-200 hover:bg-slate-800 transition-colors text-sm flex justify-center items-center gap-2"
-          >
-            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> رفع ملف إكسل
-          </button>
-          <input
-            type="file"
-            id="bulk-import-file"
-            accept=".csv,.tsv,.xls,.xlsx,.pdf,.txt"
-            class="hidden"
-            onchange="handleBulkFileUpload(event)"
-          />
-        </div>
+        <!-- منطقة النص اليدوي (مخفية افتراضياً) -->
+        <details>
+          <summary class="cursor-pointer text-[11px] font-bold text-slate-500 hover:text-slate-700 transition-colors">
+            ▸ أو ألصق بيانات نصية يدوياً (بديل عن رفع الملف)
+          </summary>
+          <div class="mt-3">
+            <textarea
+              id="bulk-sheet-data"
+              placeholder="الصق هنا: اسم المنتج, السعر (كل صنف في سطر)"
+              rows="5"
+              class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-slate-200 focus:border-blue-300 focus:ring-4 focus:ring-blue-50 font-semibold text-slate-800 resize-none"
+              dir="rtl"
+            ></textarea>
+          </div>
+        </details>
 
         <div class="pt-2">
           <button
             id="btn-save-bulk"
             onclick="saveBulkProducts()"
-            class="w-full bg-blue-500 text-white py-4 rounded-2xl font-black shadow-xl shadow-blue-200 hover:bg-blue-600 transition-colors text-lg flex justify-center items-center gap-2"
+            class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all text-lg flex justify-center items-center gap-2 active:scale-95"
           >
-            <i data-lucide="check-circle" class="w-6 h-6"></i> اعتماد المنتجات
+            <i data-lucide="check-circle" class="w-6 h-6"></i> تصفية وإضافة الأصناف
           </button>
         </div>
       </div>
     </div>
+
 
     <!-- Price Update Modal -->
     <div

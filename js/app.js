@@ -137,39 +137,7 @@ async function startApp() {
   if (!window.unsubs.categories)
     window.unsubs.categories = listenToCategories();
   if (!window.unsubs.products) window.unsubs.products = listenToProducts();
-  await initializeDefaultCategories();
   Auth.listenToAuth();
-}
-
-async function initializeDefaultCategories() {
-  try {
-    const defaultBranches = [
-      { name: "الثلاجة", img: "/img/ثلاجه", parentId: "" },
-      { name: "البقالة", img: "", parentId: "" },
-      { name: "المنظفات", img: "", parentId: "" },
-      { name: "المشروبات", img: "", parentId: "" },
-    ];
-    const categoriesRef = window.firestoreUtils.collection(
-      window.db,
-      "artifacts",
-      window.appId,
-      "public",
-      "data",
-      "categories",
-    );
-    const existingCategories = await window.firestoreUtils.getDoc(
-      window.firestoreUtils.doc(categoriesRef, "init_check"),
-    );
-    if (!existingCategories.exists()) {
-      for (const category of defaultBranches) {
-        await window.firestoreUtils.addDoc(categoriesRef, category);
-      }
-      await window.firestoreUtils.setDoc(
-        window.firestoreUtils.doc(categoriesRef, "init_check"),
-        { initialized: true },
-      );
-    }
-  } catch (error) {}
 }
 
 function listenToProducts() {

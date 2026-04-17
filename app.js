@@ -102,7 +102,7 @@ window.authUtils = {
 };
 
 // دالة عالمية لتنظيف النصوص العربية لضمان مطابقة ذكية (تتجاهل الهمزات، التاء المربوطة، والتشكيل)
-window.normalizeArabic = function(text) {
+window.normalizeArabic = function (text) {
   if (!text) return "";
   return String(text)
     .trim()
@@ -127,19 +127,19 @@ window.editingType = null;
 window.unsubs = {};
 window.notifications = [];
 window.modalAuthMode = "login";
-window.currentFilter = { type: 'all', value: null }; 
+window.currentFilter = { type: "all", value: null };
 window.currentParentId = null; // تتبع مستوى الأقسام (رئيسية أم فرعية)
-let loadAttempts = 0; 
+let loadAttempts = 0;
 
 // نظام التحميل التدريجي (Pagination)
 window.itemsPerPage = 10;
 window.currentRenderLimit = 10;
-window.lastRenderedProducts = []; 
+window.lastRenderedProducts = [];
 
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   window.deferredPrompt = e;
-  
+
   // Show the banner after a short delay to ensure DOM is ready and doesn't interrupt loading
   setTimeout(() => {
     const installBanner = document.getElementById("install-banner");
@@ -159,15 +159,17 @@ window.renderCategories = function () {
   // تصفية الأقسام للمستوى الرئيسي والترتيب الأبجدي
   const mainCats = window.categories
     .filter((c) => !c.parentId)
-    .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
-  
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
+
   let html = "";
 
   if (window.currentParentId === null) {
     // في الصفحة الرئيسية، نعرض الأقسام الرئيسية في الشريط العلوي
-    html += mainCats.map(
-      (c) => {
-        const hasSubs = window.categories.some(child => child.parentId === c.id);
+    html += mainCats
+      .map((c) => {
+        const hasSubs = window.categories.some(
+          (child) => child.parentId === c.id,
+        );
         return `
         <div onclick="window.handleCategoryClick('${c.id}', '${c.name}', ${hasSubs})" class="flex flex-col items-center gap-2 shrink-0 cursor-pointer group snap-item pb-2">
           <div class="w-20 h-20 sm:w-28 sm:h-28 rounded-3xl sm:rounded-[2.5rem] bg-white shadow-lg border-2 border-slate-50 relative overflow-hidden group-active:scale-95 transition-transform duration-200">
@@ -177,8 +179,8 @@ window.renderCategories = function () {
           <span class="text-[10px] sm:text-[12px] font-black text-slate-700 text-center leading-tight max-w-[80px] sm:max-w-[110px] group-hover:text-emerald-800 transition-colors uppercase tracking-tight">${c.name}</span>
         </div>
         `;
-      }
-    ).join("");
+      })
+      .join("");
   } else {
     // دخلنا في قسم رئيسي، الكل يختفي ونظهر فقط زر الرجوع في الشريط العلوي
     html += `
@@ -191,12 +193,13 @@ window.renderCategories = function () {
     `;
   }
 
-  container.className = "flex gap-4 sm:gap-5 overflow-x-auto pb-4 pt-1 no-scrollbar scroll-smooth";
+  container.className =
+    "flex gap-4 sm:gap-5 overflow-x-auto pb-4 pt-1 no-scrollbar scroll-smooth";
   container.innerHTML = html;
   if (window.lucide) lucide.createIcons();
 };
 
-window.handleCategoryClick = function(catId, catName, hasSubs) {
+window.handleCategoryClick = function (catId, catName, hasSubs) {
   if (hasSubs) {
     // إذا كان له أقسام فرعية، ننتقل للمستوى التالي
     window.currentParentId = catId;
@@ -209,25 +212,37 @@ window.handleCategoryClick = function(catId, catName, hasSubs) {
   }
 };
 
-window.navigateBackCategories = function() {
-  const filterCatId = window.currentFilter ? (window.currentFilter.id || window.currentFilter.value) : null;
-  
-  if (window.currentParentId !== null && window.currentFilter && window.currentFilter.type === 'category' && filterCatId !== window.currentParentId) {
-      // نحن داخل قسم فرعي (نعرض منتجاته). الرجوع خطوة للخلف یعنی الرجوع للقسم الرئيسي لعرض الأقسام الفرعية التابعة له.
-      const parentCat = window.categories.find(c => c.id === window.currentParentId);
-      window.filterByCategory(window.currentParentId, parentCat ? parentCat.name : "");
-      window.renderCategories();
+window.navigateBackCategories = function () {
+  const filterCatId = window.currentFilter
+    ? window.currentFilter.id || window.currentFilter.value
+    : null;
+
+  if (
+    window.currentParentId !== null &&
+    window.currentFilter &&
+    window.currentFilter.type === "category" &&
+    filterCatId !== window.currentParentId
+  ) {
+    // نحن داخل قسم فرعي (نعرض منتجاته). الرجوع خطوة للخلف یعنی الرجوع للقسم الرئيسي لعرض الأقسام الفرعية التابعة له.
+    const parentCat = window.categories.find(
+      (c) => c.id === window.currentParentId,
+    );
+    window.filterByCategory(
+      window.currentParentId,
+      parentCat ? parentCat.name : "",
+    );
+    window.renderCategories();
   } else {
-      // نحن إما في قسم رئيسي أو أن هناك شيء آخر، الرجوع النهائي للصفحة الرئيسية
-      window.currentParentId = null;
-      window.currentFilter = { type: 'all', value: '' };
-      window.renderCategories();
-      const title = document.getElementById("current-category-title");
-      if (title) {
-        title.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`;
-        if (window.lucide) lucide.createIcons();
-      }
-      window.renderProducts(); // لأن currentFilter أصبح 'all'، سيتم عرض الأقسام الفرعية حسب التعديل الأخير
+    // نحن إما في قسم رئيسي أو أن هناك شيء آخر، الرجوع النهائي للصفحة الرئيسية
+    window.currentParentId = null;
+    window.currentFilter = { type: "all", value: "" };
+    window.renderCategories();
+    const title = document.getElementById("current-category-title");
+    if (title) {
+      title.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`;
+      if (window.lucide) lucide.createIcons();
+    }
+    window.renderProducts(); // لأن currentFilter أصبح 'all'، سيتم عرض الأقسام الفرعية حسب التعديل الأخير
   }
 };
 
@@ -248,11 +263,13 @@ window.renderProducts = function (productsToRender = window.products) {
   }
 
   // الترتيب الأبجدي للمنتجات
-  productsToRender.sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
+  productsToRender.sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "", "ar"),
+  );
 
   // تطبيق الحد الأقصى للعرض
   const visibleProducts = productsToRender.slice(0, window.currentRenderLimit);
-  
+
   // إخفاء أو إظهار زر "عرض المزيد"
   if (loadMoreBtn) {
     if (productsToRender.length > window.currentRenderLimit) {
@@ -268,13 +285,28 @@ window.renderProducts = function (productsToRender = window.products) {
       const priceBlock = window.renderPriceBlock
         ? window.renderPriceBlock(p)
         : `<p class="font-bold text-slate-800">${Number(p.price || 0).toFixed(2)} <span class="currency-shic">EGP</span> للـ كيس</p>`;
-      
-      const defaultPrice = window.getEffectivePrice ? window.getEffectivePrice(p, 'bag') : (p.price || 0);
+
+      const defaultPrice = window.getEffectivePrice
+        ? window.getEffectivePrice(p, "bag")
+        : p.price || 0;
       const safeName = p.name ? p.name.replace(/['"]/g, "") : "منتج";
+
+      // التحقق من صلاحية المدير لإظهار زر التعديل السريع
+      const isAdmin = document.body.classList.contains("is-admin");
+      const editBtn = isAdmin
+        ? `
+        <button onclick="event.stopPropagation(); window.openProductModal(${JSON.stringify(p).replace(/"/g, "&quot;")})" 
+                class="absolute top-3 right-3 bg-white/90 backdrop-blur p-2 rounded-xl text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all z-30" 
+                title="تعديل المنتج">
+          <i data-lucide="edit-3" class="w-4 h-4"></i>
+        </button>
+      `
+        : "";
 
       return `
         <div class="bg-white rounded-3xl sm:rounded-[2.5rem] p-3 sm:p-4 border border-slate-100 shadow-sm active:scale-[0.98] sm:hover:shadow-2xl sm:hover:shadow-emerald-100/50 sm:hover:-translate-y-1.5 transition-all duration-300 group relative ${isOutOfStock ? "opacity-75" : ""}">
-            ${isOutOfStock ? '<span class="absolute top-3 left-3 bg-red-500 text-white text-[8px] px-2.5 py-1 rounded-full z-20 font-black shadow-lg">نفذت الكمية</span>' : ""}
+            ${editBtn}
+            ${isOutOfStock ? `<span class="absolute top-3 ${isAdmin ? "left-12" : "left-3"} bg-red-500 text-white text-[8px] px-2.5 py-1 rounded-full z-20 font-black shadow-lg">نفذت الكمية</span>` : ""}
             
             <div class="relative h-32 sm:h-44 mb-3 sm:mb-4 rounded-2xl sm:rounded-[2rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner">
                 <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" loading="lazy">
@@ -320,7 +352,7 @@ window.renderProducts = function (productsToRender = window.products) {
 };
 
 // New function to render subcategories in the main grid
-window.renderSubcategoriesInMainGrid = function(parentId = null) {
+window.renderSubcategoriesInMainGrid = function (parentId = null) {
   const grid = document.getElementById("products-grid");
   const loadMoreBtn = document.getElementById("load-more-container");
   const pw = document.getElementById("products-wrapper");
@@ -331,36 +363,46 @@ window.renderSubcategoriesInMainGrid = function(parentId = null) {
   let subCats = [];
   let displayTitle = "";
 
-  if (parentId === null) { // Homepage, show default main categories' subcategories
-      const grocCat = window.categories.find(c => !c.parentId && c.name && window.normalizeArabic(c.name).includes("بقال"));
-      if (grocCat) {
-          subCats = window.categories.filter(c => c.parentId === grocCat.id);
-          displayTitle = `أقسام ${grocCat.name}`;
+  if (parentId === null) {
+    // Homepage, show default main categories' subcategories
+    const grocCat = window.categories.find(
+      (c) =>
+        !c.parentId &&
+        c.name &&
+        window.normalizeArabic(c.name).includes("بقال"),
+    );
+    if (grocCat) {
+      subCats = window.categories.filter((c) => c.parentId === grocCat.id);
+      displayTitle = `أقسام ${grocCat.name}`;
+    } else {
+      const firstMain = window.categories.find((c) => !c.parentId);
+      if (firstMain) {
+        subCats = window.categories.filter((c) => c.parentId === firstMain.id);
+        displayTitle = `أقسام ${firstMain.name}`;
       } else {
-          const firstMain = window.categories.find(c => !c.parentId);
-          if (firstMain) {
-              subCats = window.categories.filter(c => c.parentId === firstMain.id);
-              displayTitle = `أقسام ${firstMain.name}`;
-          } else {
-              subCats = window.categories.filter(c => c.parentId);
-              displayTitle = "تصفح الأقسام الشاملة";
-          }
+        subCats = window.categories.filter((c) => c.parentId);
+        displayTitle = "تصفح الأقسام الشاملة";
       }
-  } else { // A parent category is selected, show its direct subcategories
-      subCats = window.categories
-        .filter(c => c.parentId === parentId)
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ar'));
-      const parentCat = window.categories.find(c => c.id === parentId);
-      displayTitle = parentCat ? parentCat.name : "الأقسام الفرعية";
+    }
+  } else {
+    // A parent category is selected, show its direct subcategories
+    subCats = window.categories
+      .filter((c) => c.parentId === parentId)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
+    const parentCat = window.categories.find((c) => c.id === parentId);
+    displayTitle = parentCat ? parentCat.name : "الأقسام الفرعية";
   }
 
   if (subCats.length === 0) {
     grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-400 font-bold">لا توجد أقسام فرعية هنا.</div>`;
   } else {
-    grid.innerHTML = subCats.map(sub => {
-        const hasSubs = window.categories.some(child => child.parentId === sub.id);
-        const parentCat = window.categories.find(p => p.id === sub.parentId);
-        
+    grid.innerHTML = subCats
+      .map((sub) => {
+        const hasSubs = window.categories.some(
+          (child) => child.parentId === sub.id,
+        );
+        const parentCat = window.categories.find((p) => p.id === sub.parentId);
+
         return `
         <div onclick="window.handleCategoryClick('${sub.id}', '${sub.name}', ${hasSubs})" class="bg-white rounded-[2rem] p-3 sm:p-4 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 hover:-translate-y-1.5 transition-all duration-500 group cursor-pointer relative overflow-hidden flex flex-col justify-between">
           <div class="relative h-32 sm:h-40 mb-3 rounded-[1.5rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner w-full">
@@ -373,11 +415,12 @@ window.renderSubcategoriesInMainGrid = function(parentId = null) {
               <span class="text-[10px] text-slate-400 font-bold mt-2 inline-flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-600 group-hover:border-emerald-100 transition-colors uppercase"><i data-lucide="arrow-left" class="w-3 h-3"></i> المنتجات</span>
           </div>
         </div>`;
-    }).join("");
+      })
+      .join("");
   }
-  
+
   if (loadMoreBtn) loadMoreBtn.classList.add("hidden");
-  
+
   const titleEl = document.getElementById("current-category-title");
   if (titleEl) {
     if (parentId === null) {
@@ -386,7 +429,7 @@ window.renderSubcategoriesInMainGrid = function(parentId = null) {
       titleEl.innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> أقسام: ${displayTitle}`;
     }
   }
-  
+
   if (window.lucide) lucide.createIcons();
 };
 
@@ -409,64 +452,6 @@ async function startApp() {
         console.error("Service Worker registration failed:", err);
       });
   }
-
-  try {
-    const categoryTree = [
-      {
-        name: "المشروبات",
-        img: "img/logo.png",
-        subs: ["شاي وقهوة", "عصائر", "مياه معدنية"],
-      },
-      {
-        name: "الألبان والجبن",
-        img: "img/logo.png",
-        subs: ["أجبان", "ألبان", "زبادي"],
-      },
-    ];
-
-    const categoriesRef = window.firestoreUtils.collection(
-      window.db,
-      "artifacts",
-      window.appId,
-      "public",
-      "data",
-      "categories",
-    );
-
-    const checkDoc = await window.firestoreUtils.getDoc(
-      window.firestoreUtils.doc(categoriesRef, "init_check")
-    );
-
-    if (!checkDoc.exists()) {
-      for (const main of categoryTree) {
-        const mainData = { 
-          name: main.name, 
-          img: main.img, 
-          parentId: "",
-          updatedAt: window.firestoreUtils.serverTimestamp()
-        };
-        const mainRef = await window.firestoreUtils.addDoc(categoriesRef, mainData);
-        
-        for (const subName of main.subs) {
-          await window.firestoreUtils.addDoc(categoriesRef, {
-            name: subName,
-            img: "",
-            parentId: mainRef.id,
-            updatedAt: window.firestoreUtils.serverTimestamp()
-          });
-        }
-      }
-
-      await window.firestoreUtils.setDoc(
-        window.firestoreUtils.doc(categoriesRef, "init_check"),
-        { initialized: true, version: 2 } // تم تحديث الإصدار لضمان التحقق
-      );
-      
-      window.showToast?.("تم تهيئة الأقسام الجديدة بنجاح", "success");
-    }
-  } catch (error) {
-    console.error("Initialization Error:", error);
-  }
 }
 
 function listenToProducts() {
@@ -476,43 +461,56 @@ function listenToProducts() {
     window.appId,
     "public",
     "data",
-    "products"
+    "products",
   );
 
   const q = window.firestoreUtils.query(
     productsCollectionRef,
-    window.firestoreUtils.limit(5000)
+    window.firestoreUtils.limit(5000),
   );
 
   return window.firestoreUtils.onSnapshot(q, (snap) => {
     window.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     // On initial load or product update, render subcategories for homepage or apply current filter
-    if (window.currentFilter.type === 'all' && window.currentParentId === null) {
-        window.renderSubcategoriesInMainGrid(null); // Default homepage view
-    } else if (window.currentFilter.type === 'category' && window.currentParentId !== null) {
-        // If a parent category is selected, check if it has subcategories.
-        // If it does, render subcategories. If not, render products.
-        const currentCat = window.categories.find(c => c.id === window.currentParentId);
-        const hasSubs = currentCat ? window.categories.some(child => child.parentId === currentCat.id) : false;
-        if (hasSubs) {
-            window.renderSubcategoriesInMainGrid(window.currentParentId);
-        } else {
-            window.applyCurrentFilter(); // This will call renderProducts
-        }
-    } else {
+    if (
+      window.currentFilter.type === "all" &&
+      window.currentParentId === null
+    ) {
+      window.renderSubcategoriesInMainGrid(null); // Default homepage view
+    } else if (
+      window.currentFilter.type === "category" &&
+      window.currentParentId !== null
+    ) {
+      // If a parent category is selected, check if it has subcategories.
+      // If it does, render subcategories. If not, render products.
+      const currentCat = window.categories.find(
+        (c) => c.id === window.currentParentId,
+      );
+      const hasSubs = currentCat
+        ? window.categories.some((child) => child.parentId === currentCat.id)
+        : false;
+      if (hasSubs) {
+        window.renderSubcategoriesInMainGrid(window.currentParentId);
+      } else {
         window.applyCurrentFilter(); // This will call renderProducts
+      }
+    } else {
+      window.applyCurrentFilter(); // This will call renderProducts
     }
-    
+
     if (document.body.classList.contains("is-admin")) {
-        // تحديث العدادات الذكية فوراً دون انتظار الرندرة الثقيلة
-        if (typeof window.updateAdminStats === "function") window.updateAdminStats();
-        
-        // منع الرندرة الكاملة للبطاقات إذا كنا في وضع الرفع الضخم لمنع تهنيج الصفحة
-        if (!window.isBulkUploading) {
-            if (typeof Admin?.renderAdminProducts === "function") Admin.renderAdminProducts();
-            if (typeof Admin?.renderInventoryAudit === "function") Admin.renderInventoryAudit();
-        }
+      // تحديث العدادات الذكية فوراً دون انتظار الرندرة الثقيلة
+      if (typeof window.updateAdminStats === "function")
+        window.updateAdminStats();
+
+      // منع الرندرة الكاملة للبطاقات إذا كنا في وضع الرفع الضخم لمنع تهنيج الصفحة
+      if (!window.isBulkUploading) {
+        if (typeof Admin?.renderAdminProducts === "function")
+          Admin.renderAdminProducts();
+        if (typeof Admin?.renderInventoryAudit === "function")
+          Admin.renderInventoryAudit();
+      }
     }
     if (
       window.currentUserRole === "admin" &&
@@ -547,7 +545,8 @@ function listenToCategories() {
       Admin.updateCategorySelects();
 
     // تحديث العدادات
-    if (typeof window.updateAdminStats === "function") window.updateAdminStats();
+    if (typeof window.updateAdminStats === "function")
+      window.updateAdminStats();
 
     if (
       document.body.classList.contains("is-admin") &&
@@ -558,7 +557,7 @@ function listenToCategories() {
 }
 
 window.filterByCategory = function (catId, catName) {
-  window.currentFilter = { type: 'category', id: catId, name: catName };
+  window.currentFilter = { type: "category", id: catId, name: catName };
   window.currentRenderLimit = window.itemsPerPage; // إعادة تعيين الحد عند تغيير القسم
   const filtered = window.products.filter(
     (p) => p.category === catName || p.categoryId === catId,
@@ -571,10 +570,10 @@ window.filterByCategory = function (catId, catName) {
   window.renderProducts(filtered);
 };
 
-window.handleCategoryClick = function(catId, catName, hasSubs) {
+window.handleCategoryClick = function (catId, catName, hasSubs) {
   if (hasSubs) {
     window.currentParentId = catId;
-    window.currentFilter = { type: 'category', id: catId, name: catName }; // Set filter context
+    window.currentFilter = { type: "category", id: catId, name: catName }; // Set filter context
     window.renderCategories(); // Updates top bar
     window.renderSubcategoriesInMainGrid(catId); // Show subcategories in main grid
   } else {
@@ -584,42 +583,51 @@ window.handleCategoryClick = function(catId, catName, hasSubs) {
   }
 };
 
-window.navigateBackCategories = function() {
-  const currentCat = window.categories.find(c => c.id === window.currentParentId);
-  
+window.navigateBackCategories = function () {
+  const currentCat = window.categories.find(
+    (c) => c.id === window.currentParentId,
+  );
+
   if (currentCat && currentCat.parentId) {
-      // If current category has a parent, go back to parent's subcategories
-      window.currentParentId = currentCat.parentId;
-      const parentCat = window.categories.find(c => c.id === currentCat.parentId);
-      window.currentFilter = { type: 'category', id: parentCat.id, name: parentCat.name };
-      window.renderCategories();
-      window.renderSubcategoriesInMainGrid(parentCat.id);
+    // If current category has a parent, go back to parent's subcategories
+    window.currentParentId = currentCat.parentId;
+    const parentCat = window.categories.find(
+      (c) => c.id === currentCat.parentId,
+    );
+    window.currentFilter = {
+      type: "category",
+      id: parentCat.id,
+      name: parentCat.name,
+    };
+    window.renderCategories();
+    window.renderSubcategoriesInMainGrid(parentCat.id);
   } else {
-      // If current category has no parent (it's a top-level parent or homepage), go to homepage default
-      window.currentParentId = null;
-      window.currentFilter = { type: 'all', value: null };
-      window.renderCategories();
-      window.renderSubcategoriesInMainGrid(null); // Show default main categories' subcategories
+    // If current category has no parent (it's a top-level parent or homepage), go to homepage default
+    window.currentParentId = null;
+    window.currentFilter = { type: "all", value: null };
+    window.renderCategories();
+    window.renderSubcategoriesInMainGrid(null); // Show default main categories' subcategories
   }
 
   if (window.lucide) lucide.createIcons();
 };
 
-window.searchProducts = function(term) {
-  window.currentFilter = { type: 'search', value: term };
+window.searchProducts = function (term) {
+  window.currentFilter = { type: "search", value: term };
   window.currentRenderLimit = window.itemsPerPage;
-  if (!term || term.trim() === "") return window.renderProducts(window.products);
+  if (!term || term.trim() === "")
+    return window.renderProducts(window.products);
 
   const searchTerms = window.normalizeArabic(term).split(/\s+/).filter(Boolean);
-  
+
   const filtered = window.products.filter((p) => {
     const pName = window.normalizeArabic(p.name);
     const pCat = window.normalizeArabic(p.category || "");
     const pSku = (p.sku || "").toLowerCase();
     const combinedText = `${pName} ${pCat} ${pSku}`;
-    
+
     // بحث ذكي: التأكد من مطابقة كل كلمة بحث مع أي جزء من بيانات المنتج (AND Search)
-    return searchTerms.every(t => combinedText.includes(t));
+    return searchTerms.every((t) => combinedText.includes(t));
   });
 
   const titleElem = document.getElementById("current-category-title");
@@ -627,48 +635,48 @@ window.searchProducts = function(term) {
     titleElem.innerHTML = `<i data-lucide="search" class="w-5 h-5 text-emerald-500"></i> نتائج البحث: ${term}`;
   }
   window.renderProducts(filtered);
-}
+};
 
-window.loadMoreProducts = function() {
-    window.currentRenderLimit += window.itemsPerPage;
-    window.renderProducts(window.lastRenderedProducts);
-    
-    // سكرول بسيط للأسفل لرؤية المنتجات الجديدة
-    window.scrollBy({ top: 300, behavior: 'smooth' });
+window.loadMoreProducts = function () {
+  window.currentRenderLimit += window.itemsPerPage;
+  window.renderProducts(window.lastRenderedProducts);
+
+  // سكرول بسيط للأسفل لرؤية المنتجات الجديدة
+  window.scrollBy({ top: 300, behavior: "smooth" });
 };
 
 window.filterByStatus = function (status) {
-  window.currentFilter = { type: 'status', value: status };
+  window.currentFilter = { type: "status", value: status };
   if (status === "all") return window.renderProducts(window.products);
   const filtered = window.products.filter((p) => p.status === status);
   window.renderProducts(filtered);
 };
 
 window.applyCurrentFilter = function () {
-    const filter = window.currentFilter;
-    if (!filter || filter.type === 'all') {
-        window.renderSubcategoriesInMainGrid(null); // Default homepage view
-    } else if (filter.type === 'category') {
-        const filtered = window.products.filter(
-            (p) => p.category === filter.name || p.categoryId === filter.id,
-        );
-        window.renderProducts(filtered);
-    } else if (filter.type === 'search') {
-        const term = filter.value.toLowerCase();
-        const filtered = window.products.filter(
-            (p) =>
-                p.name.toLowerCase().includes(term) ||
-                (p.category && p.category.toLowerCase().includes(term)),
-        );
-        window.renderProducts(filtered);
-    } else if (filter.type === 'status') {
-        if (filter.value === 'all') {
-            window.renderProducts(window.products);
-        } else {
-            const filtered = window.products.filter((p) => p.status === filter.value);
-            window.renderProducts(filtered);
-        }
+  const filter = window.currentFilter;
+  if (!filter || filter.type === "all") {
+    window.renderSubcategoriesInMainGrid(null); // Default homepage view
+  } else if (filter.type === "category") {
+    const filtered = window.products.filter(
+      (p) => p.category === filter.name || p.categoryId === filter.id,
+    );
+    window.renderProducts(filtered);
+  } else if (filter.type === "search") {
+    const term = filter.value.toLowerCase();
+    const filtered = window.products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(term) ||
+        (p.category && p.category.toLowerCase().includes(term)),
+    );
+    window.renderProducts(filtered);
+  } else if (filter.type === "status") {
+    if (filter.value === "all") {
+      window.renderProducts(window.products);
+    } else {
+      const filtered = window.products.filter((p) => p.status === filter.value);
+      window.renderProducts(filtered);
     }
+  }
 };
 
 window.processImageUrl = async function (url, previewId, hiddenInputId) {
@@ -726,11 +734,17 @@ window.processImageUrl = async function (url, previewId, hiddenInputId) {
         if (placeholder) placeholder.classList.add("hidden");
         // حفظ الرابط المباشر إذا فشل التحويل (CORS)
         if (hiddenInput) hiddenInput.value = targetUrl;
-        window.showToast("تم استخدام الرابط المباشر - الصورة جاهزة للحفظ ✅", "success");
+        window.showToast(
+          "تم استخدام الرابط المباشر - الصورة جاهزة للحفظ ✅",
+          "success",
+        );
       }
     };
     img.onerror = () => {
-      window.showToast("رابط الصورة غير صالح أو لا يسمح بالعرض الخارجي ❌", "error");
+      window.showToast(
+        "رابط الصورة غير صالح أو لا يسمح بالعرض الخارجي ❌",
+        "error",
+      );
     };
     img.src = targetUrl;
   } catch (e) {
