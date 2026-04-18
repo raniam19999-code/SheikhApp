@@ -1564,6 +1564,19 @@ export async function handleBulkPriceFileUpload(event) {
             "الباركود",
           ]) || "",
         ).trim();
+        const qty = findValByParts(r, [
+          "الرصيد",
+          "الكمية",
+          "الكميه",
+          "الكمية المتاحة",
+          "مخزون",
+          "Stock",
+          "Quantity",
+          "Qty",
+          "الكميه المتاحه"
+        ]);
+        const qtyVal = (qty !== "" && qty !== undefined) ? parseExcelNumber(qty) : "";
+
         const cat = String(
           findValByParts(r, [
             "المجموعه",
@@ -1644,7 +1657,7 @@ export async function handleBulkPriceFileUpload(event) {
         // إذا لم يكن هناك اسم وصفي، نستخدم الكود كمعرف نهائي (إذا كان موجوداً)
         if (!resultIdentifier) return null;
 
-        return `${resultIdentifier}|${price}${cat ? "|" + cat : ""}`;
+        return `${resultIdentifier}|${price}|${qtyVal}${cat ? "|" + cat : ""}`;
       })
       .filter(Boolean);
 
