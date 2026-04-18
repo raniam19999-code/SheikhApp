@@ -396,6 +396,8 @@ window.renderSubcategoriesInMainGrid = function (parentId = null) {
   if (subCats.length === 0) {
     grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-400 font-bold">لا توجد أقسام فرعية هنا.</div>`;
   } else {
+    const isAdmin = document.body.classList.contains("is-admin") || window.currentUserRole === "admin";
+
     grid.innerHTML = subCats
       .map((sub) => {
         const hasSubs = window.categories.some(
@@ -403,8 +405,17 @@ window.renderSubcategoriesInMainGrid = function (parentId = null) {
         );
         const parentCat = window.categories.find((p) => p.id === sub.parentId);
 
+        const editBtn = isAdmin 
+          ? `<button onclick="event.stopPropagation(); window.openCategoryModal(${JSON.stringify(sub).replace(/"/g, "&quot;")})" 
+                     class="absolute top-3 right-3 bg-white/90 backdrop-blur p-2 rounded-xl text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all z-30" 
+                     title="تعديل القسم">
+               <i data-lucide="edit-3" class="w-4 h-4"></i>
+             </button>` 
+          : "";
+
         return `
         <div onclick="window.handleCategoryClick('${sub.id}', '${sub.name}', ${hasSubs})" class="bg-white rounded-[2rem] p-3 sm:p-4 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 hover:-translate-y-1.5 transition-all duration-500 group cursor-pointer relative overflow-hidden flex flex-col justify-between">
+          ${editBtn}
           <div class="relative h-32 sm:h-40 mb-3 rounded-[1.5rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner w-full">
             <div class="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-700 ease-out" style="background-image: url('${sub.img || "img/logo.png"}');"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-[#1B4332]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

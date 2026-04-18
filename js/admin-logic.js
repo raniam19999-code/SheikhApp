@@ -1215,128 +1215,124 @@ async function processBulkProducts(rows) {
 }
 window.smartRowBasedUpdate = smartRowBasedUpdate;
 
-function deriveStatus(qty, min) {
-  if (qty <= 0) return "out_of_stock";
-  if (qty <= min) return "low_stock";
-  return "available";
-}
-window.deriveStatus = deriveStatus;
+/**
+ * دالة تحديث الأسعار فقط
+ * مصممة للبحث عن السعر حتى لو كان في آخر عمود في الشيت
+ */
+export async function updatePricesOnly(rows) {
+    const productsRef = window.firestoreUtils.collection(
+        window.db, "artifacts", window.appId, "public", "data", "products"
+    );
 
-// وظائف المودال الخاص بالاستيراد بكلمات مفتاحية
+    let updated = 0;
+    const batch = window.firestoreUtils.writeBatch(window.db);
+    const productMap = new Map();
+    (window.products || []).forEach(p => {
+        if (p.name) productMap.set(normalizeArabic(p.name), p);
+        if (p.sku) productMap.set(normalizeArabic(p.sku), p);
+    });
+
+    for (const row of rows) {
+        let name = String(findValByParts(row, ["الصنف", "الاسم", "البيان", "Item"]) || "").trim();
+        let sku = String(findValByParts(row, ["كود", "SKU", "Barcode"]) || "").trim();
+        let price = 0;
+
+        // البحث العكسي عن السعر في أعمدة الإكسل
+        const values = Object.values(row).reverse();
+        for (let val of values) {
+            let cleanNum = parseExcelNumber(val);
+            if (cleanNum > 0 && !isNaN(cleanNum)) {
+                price = cleanNum;
+                break;
+            }
+        }
+
+        const existing = productMap.get(normalizeArabic(name)) || (sku ? productMap.get(normalizeArabic(sku)) : null);
+        if (existing && price > 0) {
+            const docRef = window.firestoreUtils.doc(productsRef, existing.id);
+            batch.update(docRef, {
+                price: price,
+                "prices.bag": price,
+                updatedAt: window.firestoreUtils.serverTimestamp()
+            });
+            updated++;
+        }
+    }
+    if (updated > 0) {
+        await batch.commit();
+        window.showToast(`تم تحديث أسعار ${updated} صنف بنجاح`, "success");
+    }
+}
+window.updatePricesOnly = updatePricesOnly;
+
 export function openBulkImportModal() {
-  const modal = document.getElementById("bulk-import-modal");
-  if (modal) {
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  }
+    const modal = document.getElementById("bulk-import-modal");
+    if (modal) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+    }
 }
 window.openBulkImportModal = openBulkImportModal;
 
 export function closeBulkImportModal() {
-  const modal = document.getElementById("bulk-import-modal");
-  if (modal) {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-    // تم إزالة تصفير window.lastUploadedRows للحفاظ على البيانات المرفوعة
-    // حتى لو أغلق المدمن النافذة بالخطأ أو أراد إضافة قسم آخر من نفس الملف
-  }
+    const modal = document.getElementById("bulk-import-modal");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
 }
 window.closeBulkImportModal = closeBulkImportModal;
-
 // معالجة وحفظ المنتجات المفلترة بالكلمات المفتاحية
 export async function saveBulkProducts() {
-  const keywordsRaw = document.getElementById("bulk-keywords")
-    ? document.getElementById("bulk-keywords").value
-    : "";
-  const keywords = keywordsRaw
-    .split(",")
-    .map((k) => normalizeArabic(k.trim()))
-    .filter(Boolean);
-  const sheetDataText = document.getElementById("bulk-sheet-data")
-    ? document.getElementById("bulk-sheet-data").value.trim()
-    : "";
-  const unitEl = document.getElementById("bulk-unit");
-  const unit = unitEl ? unitEl.value : "كيس";
-  const quantitiesEl = document.getElementById("bulk-quantities");
-  const quantities = quantitiesEl ? quantitiesEl.value : "";
-  const targetCatId = document.getElementById("bulk-import-cat")
-    ? document.getElementById("bulk-import-cat").value
-    : "";
-  const targetCatObj = (window.categories || []).find(
-    (c) => c.id === targetCatId,
-  );
+  // 1. جلب وتنظيف الكلمات المفتاحية
+  const keywordsInput = document.getElementById("bulk-keywords");
+  const keywords = keywordsInput && keywordsInput.value
+    ? keywordsInput.value.split(",").map((k) => normalizeArabic(k.trim())).filter(Boolean)
+    : [];
 
+  // 2. جلب البيانات من النص الملصق أو من آخر ملف تم رفعه
   let rows = window.lastUploadedRows || [];
+  const sheetDataArea = document.getElementById("bulk-sheet-data");
+  const sheetDataText = sheetDataArea ? sheetDataArea.value.trim() : "";
 
-  // إذا قام المستخدم بلصق نص يدوياً بدلاً من رفع ملف
+  // إذا لم توجد بيانات مرفوعة مسبقاً، نحاول قراءة النص الملصق
   if (rows.length === 0 && sheetDataText) {
-    const lines = sheetDataText.split("\n");
-    rows = lines
-      .map((line) => {
-        const parts = line.split(/[\t,]/);
-        return {
-          الاسم: (parts[0] || "").trim(),
-          السعر: (parts[1] || "").trim(),
-          الكود: (parts[2] || "").trim(),
-          الكمية: (parts[3] || "").trim(),
-        };
-      })
-      .filter((r) => r["الاسم"] && r["الاسم"].length > 0);
+    rows = sheetDataText.split("\n").map((line) => {
+      const parts = line.split(/[\t,]/);
+      return {
+        "الاسم": (parts[0] || "").trim(),
+        "سعر": (parts[1] || "").trim(),
+        "كود": (parts[2] || "").trim(),
+        "مخزون": (parts[3] || "").trim(),
+      };
+    }).filter(r => r["الاسم"]);
   }
 
   if (rows.length === 0) {
-    return window.showToast(
-      "⚠️ لا يوجد ملف مرفوع! الرجاء رفع ملف الإكسل أولاً ثم إدخال الكلمات المفتاحية",
-      "warning",
-      6000,
-    );
+    return window.showToast("يرجى إدخال بيانات أو رفع ملف أولاً", "warning");
   }
 
-  // تصفية الصفوف بناءً على الكلمات المفتاحية
-  let filteredRows = rows;
-  if (keywords.length > 0) {
-    filteredRows = rows.filter((row) => {
-      const r = {};
-      Object.keys(row).forEach((k) => (r[k.trim()] = row[k]));
-      const nameNormalized = normalizeArabic(
-        String(
-          findValByParts(r, [
-            "صنف",
-            "الصنف",
-            "المنتج",
-            "اسم",
-            "الاسم",
-            "البيان",
-            "Name",
-            "Item",
-          ]) || "",
-        ),
-      );
-      const skuNormalized = normalizeArabic(
-        String(
-          findValByParts(r, ["كود", "SKU", "الرمز", "الباركود", "code"]) || "",
-        ),
-      );
-      return keywords.some(
-        (k) => k && (nameNormalized.includes(k) || skuNormalized.includes(k)),
-      );
-    });
-    if (filteredRows.length === 0) {
-      return window.showToast(
-        `لم يتم العثور على أصناف تحتوي على: "${keywordsRaw}" - تأكد من الكتابة الصحيحة`,
-        "warning",
-        6000,
-      );
-    }
+  // 3. تصفية الصفوف بناءً على الكلمات المفتاحية
+  let filteredRows = rows.filter((row) => {
+    if (keywords.length === 0) return true; // إذا لم توجد كلمات، نأخذ الكل
+    const name = findValByParts(row, ["اسم الصنف", "الصنف", "الاسم", "البيان", "المنتج", "Product"]);
+    const normName = normalizeArabic(name);
+    return keywords.some((k) => normName.includes(k));
+  });
+
+  if (filteredRows.length === 0) {
+    return window.showToast("لا توجد أصناف مطابقة للكلمات المفتاحية المختارة", "info");
   }
 
-  const countText =
-    keywords.length > 0 ? "مطابق للكلمات المفتاحية" : "إجمالي الملف";
-  if (
-    confirm(
-      `تم العثور على ${filteredRows.length} صنف (${countText}).\nهل تريد إضافتهم/تحديثهم الآن؟\n\nملاحظة: الأصناف الموجودة مسبقاً بنفس الاسم سيتم تحديث أسعارها فقط.`,
-    )
-  ) {
+  // جلب إعدادات القسم والوحدة من الواجهة (تأكد من وجود هذه الـ IDs في الـ HTML)
+  const targetCatId = document.getElementById("bulk-category-select")?.value || "";
+  const targetCatObj = (window.categories || []).find((c) => c.id === targetCatId);
+  const unit = document.getElementById("bulk-unit-select")?.value || "قطعة";
+  const quantities = document.getElementById("bulk-quantities-input")?.value || "";
+
+  const countText = keywords.length > 0 ? "مطابق للكلمات المفتاحية" : "إجمالي الملف";
+
+  if (confirm(`تم العثور على ${filteredRows.length} صنف (${countText}).\nهل تريد إضافتهم/تحديثهم الآن؟`)) {
     window.showNotification(`جاري معالجة ${filteredRows.length} صنف...`);
 
     const rowsToProcess = filteredRows.map((r) => {
@@ -1345,29 +1341,30 @@ export async function saveBulkProducts() {
 
       return {
         ...rowCleaned,
-        Category: targetCatObj
-          ? targetCatObj.name
-          : rowCleaned["Category"] || "عام",
+        category: targetCatObj ? targetCatObj.name : (rowCleaned["category"] || "عام"),
         categoryId: targetCatId || rowCleaned["categoryId"] || "",
-        Unit: unit,
-        AvailableQuantities: quantities,
-        MinStock: 5,
+        unitMeasurement: unit,
+        availableQuantities: quantities,
+        minStock: 5,
       };
     });
 
     try {
-      await processBulkProducts(rowsToProcess);
-      closeBulkImportModal();
-      if (document.getElementById("bulk-keywords"))
-        document.getElementById("bulk-keywords").value = "";
-      if (document.getElementById("bulk-sheet-data"))
-        document.getElementById("bulk-sheet-data").value = "";
+      // استدعاء دالة المعالجة الجماعية (التي تدعم السعر والمخزون)
+      await window.processBulkProducts(rowsToProcess);
+      
+      // إغلاق المودال وتفريغ الحقول
+      if (typeof closeBulkImportModal === "function") closeBulkImportModal();
+      if (document.getElementById("bulk-keywords")) document.getElementById("bulk-keywords").value = "";
+      if (document.getElementById("bulk-sheet-data")) document.getElementById("bulk-sheet-data").value = "";
+      
     } catch (e) {
       console.error(e);
       window.showToast("حدث خطأ أثناء الحفظ: " + (e.message || ""), "error");
     }
   }
 }
+
 window.saveBulkProducts = saveBulkProducts;
 
 // 2. إدارة جرد المخزن والنواقص
@@ -1564,19 +1561,6 @@ export async function handleBulkPriceFileUpload(event) {
             "الباركود",
           ]) || "",
         ).trim();
-        const qty = findValByParts(r, [
-          "الرصيد",
-          "الكمية",
-          "الكميه",
-          "الكمية المتاحة",
-          "مخزون",
-          "Stock",
-          "Quantity",
-          "Qty",
-          "الكميه المتاحه"
-        ]);
-        const qtyVal = (qty !== "" && qty !== undefined) ? parseExcelNumber(qty) : "";
-
         const cat = String(
           findValByParts(r, [
             "المجموعه",
@@ -1657,7 +1641,7 @@ export async function handleBulkPriceFileUpload(event) {
         // إذا لم يكن هناك اسم وصفي، نستخدم الكود كمعرف نهائي (إذا كان موجوداً)
         if (!resultIdentifier) return null;
 
-        return `${resultIdentifier}|${price}|${qtyVal}${cat ? "|" + cat : ""}`;
+        return `${resultIdentifier}|${price}${cat ? "|" + cat : ""}`;
       })
       .filter(Boolean);
 
