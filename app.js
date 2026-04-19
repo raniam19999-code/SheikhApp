@@ -290,6 +290,7 @@ window.renderProducts = function (productsToRender = window.products) {
         ? window.getEffectivePrice(p, "bag")
         : p.price || 0;
       const safeName = p.name ? p.name.replace(/['"]/g, "") : "منتج";
+      const maxQty = Number(p.quantity || 0);
 
       // التحقق من صلاحية المدير لإظهار زر التعديل السريع
       const isAdmin = document.body.classList.contains("is-admin");
@@ -329,8 +330,8 @@ window.renderProducts = function (productsToRender = window.products) {
 
                 <div class="mt-2 sm:mt-4 flex items-center gap-2">
                     <div class="flex-[1.2] flex items-center bg-slate-50/80 rounded-[1.25rem] border border-slate-100 p-1">
-                        <button onclick="const inp=this.nextElementSibling; inp.stepUp();" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all active:scale-95">+</button>
-                        <input type="number" id="qty-${p.id}" value="1" min="1" class="w-full bg-transparent text-center text-sm font-black text-slate-800 outline-none">
+                        <button onclick="const inp=this.nextElementSibling; if(inp.value < ${maxQty}) inp.stepUp();" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all active:scale-95">+</button>
+                        <input type="number" id="qty-${p.id}" value="1" min="1" max="${maxQty}" class="w-full bg-transparent text-center text-sm font-black text-slate-800 outline-none">
                         <button onclick="const inp=this.previousElementSibling; inp.stepDown();" class="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all active:scale-95 px-2.5">-</button>
                     </div>
                     

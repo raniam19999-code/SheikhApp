@@ -980,12 +980,6 @@
               <div
                 class="col-span-full bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 text-center"
               >
-                <button
-                  onclick="openBulkPriceUpdateModal()"
-                  class="bg-amber-500 text-white px-6 py-3 rounded-xl text-sm font-black shadow-lg shadow-amber-200 hover:bg-amber-600 transition-colors flex items-center gap-2 mx-auto"
-                >
-                  <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> رفع منتجات وتحديث أسعار (إكسل)
-                </button>
                 <p class="text-slate-500 text-xs mt-3 font-semibold">
                   ارفع شيت إكسل لإضافة منتجات جديدة دفعة واحدة، أو لتحديث الأسعار والمخزون.
                 </p>
@@ -1434,102 +1428,6 @@
         </div>
         <div id="price-update-content">
           <!-- Content will be populated by JavaScript -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Bulk Price Update Modal -->
-    <div
-      id="bulk-price-update-modal"
-      class="fixed inset-0 bg-slate-900/60 z-[1100] hidden items-end sm:items-center justify-center sm:p-4 backdrop-blur-sm transition-opacity"
-    >
-      <div
-        class="bg-white w-full max-w-2xl rounded-t-[2rem] sm:rounded-[2rem] p-6 space-y-5 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto no-scrollbar"
-      >
-        <div class="flex justify-between items-center mb-2">
-          <h3 class="font-black text-xl flex items-center gap-2 text-slate-800">
-            <i data-lucide="dollar-sign" class="w-6 h-6 text-amber-500"></i>
-            تحديث أسعار القسم
-          </h3>
-          <button
-            onclick="closeBulkPriceUpdateModal()"
-            class="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
-          >
-            <i data-lucide="x" class="w-5 h-5"></i>
-          </button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
-              >اختر القسم (لتطبيق نسبة زيادة فقط)</label
-            >
-            <select
-              id="bulk-price-cat"
-              class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-amber-300 focus:ring-4 focus:ring-amber-50 font-bold text-sm text-slate-700"
-            >
-              <option value="">-- كل الأقسام (لتحديث الملفات الشامل) --</option>
-            </select>
-          </div>
-          <!-- New input for percentage increase -->
-          <div>
-            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
-              >زيادة نسبة مئوية (%)</label
-            >
-            <input
-              type="number"
-              id="bulk-price-percentage"
-              onkeydown="if(event.key === 'Enter') saveBulkPriceUpdates()"
-              placeholder="مثال: 10 (لزيادة 10%)"
-              step="0.1"
-              class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-amber-300 focus:ring-4 focus:ring-amber-50 font-semibold text-slate-800"
-              dir="ltr"
-            />
-          </div>
-          <div class="md:col-span-2">
-            <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
-              >ألصق بيانات الأسعار هنا</label
-            >
-            <textarea
-              id="bulk-price-data"
-              placeholder="مثال: P123,بطاطس,25.50,بقالة&#10;مناديل,30.00,بقالة&#10;زيت,85.00"
-              rows="8"
-              class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-amber-300 focus:ring-4 focus:ring-amber-50 font-semibold text-slate-800 resize-none"
-              dir="ltr"
-            ></textarea>
-            <p class="text-[10px] text-slate-400 mt-2">
-              يدعم: الاسم,السعر أو الاسم,السعر,القسم أو الكود,الاسم,السعر,القسم.
-              الفاصل يمكن أن يكون تبويب، فاصلة أو خط مائل.
-              <span class="font-bold text-amber-600"
-                >أو اترك هذا فارغاً واستخدم حقل النسبة المئوية لزيادة أسعار
-                القسم بالكامل.</span
-              >
-            </p>
-          </div>
-        </div>
-        <div class="flex gap-3 flex-col sm:flex-row">
-          <button
-            type="button"
-            onclick="document.getElementById('bulk-price-file-input').click()"
-            class="w-full bg-slate-900 text-white py-3 rounded-2xl font-black shadow-xl shadow-slate-200 hover:bg-slate-800 transition-colors text-sm"
-          >
-            رفع ملف أسعار
-          </button>
-          <input
-            type="file"
-            id="bulk-price-file-input"
-            accept=".csv,.tsv,.xls,.xlsx,.pdf,.txt"
-            class="hidden"
-            onchange="handleBulkPriceFileUpload(event)"
-          />
-        </div>
-        <div class="pt-2">
-          <button
-            id="btn-save-bulk-prices"
-            onclick="saveBulkPriceUpdates()"
-            class="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-xl shadow-amber-200 hover:bg-amber-600 transition-colors text-lg"
-          >
-            تحديث الأسعار
-          </button>
         </div>
       </div>
     </div>

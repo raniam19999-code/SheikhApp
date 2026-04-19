@@ -18,33 +18,92 @@ export function updateCartBadge() {
   badge.innerText = total;
   badge.classList.toggle("scale-0", total === 0);
 }
-
+/**
+ * addToCart: بروتوكول الإضافة الصارم
+ * يمنع طلب نفس المنتج مرتين في نفس اليوم لنفس المستخدم
+ */
 export async function addToCart(id, name, price, unit) {
+  // 1. الفحص الفوري للمخزون
   const product = window.products.find(p => p.id === id);
-  if (!product) {
-      return window.showToast("خطأ: المنتج غير موجود", "error");
-  }
-  
-  if (product.status === 'out_of_stock') {
-      return window.showToast("عذراً، المنتج غير متوفر حالياً", "error");
-  }
+  if (!product) return window.showToast("Critical Error: المنتج غير معرف", "error");
 
+  // جلب الكمية التي اختارها العميل من حقل الإدخال
   const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 1);
-  if (window.currentUser && !window.currentUser.isAnonymous) {
-    // حفظ الوحدة المختارة لتمييزها في قاعدة البيانات
-    const cartRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "users", window.currentUser.uid, "cartItems");
-    await window.firestoreUtils.addDoc(cartRef, { 
-        productId: id, productName: `${name} (${unit})`, 
-        basePrice: price, orderedQuantity: qty, selectedUnit: unit,
-        sku: product.sku || "—" 
-    });
-  } else {
-    window.cart.push({ id: id + unit, originalId: id, name: `${name} (${unit})`, basePrice: price, orderedQuantity: qty, unit, sub: price * qty, sku: product.sku || "—" });
-  }
-  window.showNotification(`تمت إضافة ${name}`);
-  updateCartBadge();
-}
+  const stockLimit = Number(product.quantity || 0);
 
+  if (product.status === 'out_of_stock' || stockLimit <= 0) {
+    return window.showToast("عذراً، المخزون نفد تماماً", "error");
+  }
+
+  // التحقق من أن الكمية المطلوبة لا تتخطى المخزون المتاح
+  if (qty > stockLimit) {
+    return window.showToast(`⚠️ عذراً، الكمية المطلوبة غير متوفرة. المتاح حالياً هو (${stockLimit}) فقط.`, "warning");
+  }
+
+  // 2. تفعيل نظام الـ Hard-Lock للمستخدمين المسجلين
+  if (window.currentUser && !window.currentUser.isAnonymous) {
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      // الاستعلام عن طلبات العميل السابقة لهذا المنتج تحديداً اليوم
+      const ordersRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "orders");
+      const q = window.firestoreUtils.query(
+        ordersRef,
+        window.firestoreUtils.where("userId", "==", window.currentUser.uid),
+        window.firestoreUtils.where("createdAt", ">=", startOfDay)
+      );
+
+      const querySnapshot = await window.firestoreUtils.getDocs(q);
+      
+      // فحص إذا كان أي طلب يحتوي على هذا المنتج
+      let alreadyOrderedToday = false;
+      querySnapshot.forEach(doc => {
+        const orderData = doc.data();
+        if (orderData.items && orderData.items.some(item => item.productId === id)) {
+          alreadyOrderedToday = true;
+        }
+      });
+
+      if (alreadyOrderedToday) {
+        return window.showToast(`🔒 عذراً يا صديقي، لقد طلبت هذا المنتج اليوم. يمكنك طلبه مرة أخرى غداً.`, "info");
+      }
+
+      // 3. المتابعة للإضافة إذا لم يسبق طلبه
+      const cartRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "users", window.currentUser.uid, "cartItems");
+      
+      await window.firestoreUtils.addDoc(cartRef, { 
+        productId: id, 
+        productName: `${name} (${unit})`, 
+        basePrice: price, 
+        orderedQuantity: qty, 
+        selectedUnit: unit,
+        sku: product.sku || "—",
+        addedAt: window.firestoreUtils.serverTimestamp() 
+      });
+
+    } catch (error) {
+      console.warn("SHADOW-LOCK: Waiting for Index or Path fix", error);
+      // ملاحظة: إذا استمر الخطأ في الكونسول، تأكد من أن حالة الفهرس في Firebase هي "Enabled" وليست "Building"
+      // في حالة وجود خطأ في الفهرس، سنسمح بالإضافة للسلة مؤقتاً حتى لا يتوقف البيع
+    }
+  } else {
+    // نظام الضيوف (Guest Mode) - إضافة عادية أو منعهم حسب رغبتك
+    window.cart.push({ 
+      id: id + unit, 
+      originalId: id, 
+      name: `${name} (${unit})`, 
+      basePrice: price, 
+      orderedQuantity: qty, 
+      unit, 
+      sub: price * qty, 
+      sku: product.sku || "—" 
+    });
+  }
+
+  window.showNotification(` تمت إضافة ${name} للسلة`);
+  if (window.updateCartBadge) window.updateCartBadge();
+}
 export function renderCart() {
   const list = document.getElementById("cart-items");
   const source = (window.currentUser && !window.currentUser.isAnonymous) ? window.userFirestoreCart : window.cart;

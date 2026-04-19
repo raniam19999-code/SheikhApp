@@ -24,7 +24,8 @@ export async function placeOrder() {
 
   // تحديث أسعار المنتجات في الطلب لتكون مطابقة للأسعار الحالية في الموقع قبل الحفظ
   const itemsWithLivePrices = sourceCart.map(item => {
-    const product = (window.products || []).find(p => p.id === (item.productId || item.originalId));
+    const prodId = item.productId || item.originalId;
+    const product = (window.products || []).find(p => p.id === prodId);
     let currentPrice = Number(item.basePrice || item.price || 0);
     
     if (product) {
@@ -33,7 +34,7 @@ export async function placeOrder() {
       if (livePrice > 0) currentPrice = Number(livePrice);
     }
     
-    return { ...item, basePrice: currentPrice, price: currentPrice };
+    return { ...item, productId: prodId, basePrice: currentPrice, price: currentPrice };
   });
 
   const total = itemsWithLivePrices.reduce((sum, item) => sum + (item.basePrice * item.orderedQuantity), 0);
@@ -54,8 +55,52 @@ export async function placeOrder() {
 
   try {
     window.showNotification("جاري إرسال طلبك...");
+    
+    // استخدام WriteBatch لضمان خصم المخزون وإرسال الطلب في عملية واحدة (المعيار الذهبي)
+    const batch = window.firestoreUtils.writeBatch(window.db);
     const ordersRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "orders");
-    await window.firestoreUtils.addDoc(ordersRef, orderData);
+    const newOrderRef = window.firestoreUtils.doc(ordersRef); // إنشاء مرجع بـ ID تلقائي
+    
+    // 1. إضافة وثيقة الطلب للدفعة
+    batch.set(newOrderRef, orderData);
+
+    // 2. خصم الكميات من المخزون لكل منتج في الطلب
+    itemsWithLivePrices.forEach(item => {
+      const prodId = item.productId || item.originalId;
+      const product = (window.products || []).find(p => p.id === prodId);
+      
+      if (product) {
+        const productRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", prodId);
+        const currentQty = Number(product.quantity || 0);
+        const orderedQty = Number(item.orderedQuantity || 0);
+        const newQty = Math.max(0, currentQty - orderedQty); // لضمان عدم نزول المخزون تحت الصفر
+
+        batch.update(productRef, {
+          quantity: newQty,
+          status: newQty > 0 ? 'available' : 'out_of_stock',
+          updatedAt: window.firestoreUtils.serverTimestamp()
+        });
+      }
+    });
+
+    // تنفيذ الدفعة بالكامل برمجياً
+    await batch.commit();
+
+    // 3. فحص النواقص وإرسال تنبيهات للمدير
+    itemsWithLivePrices.forEach(item => {
+      const prodId = item.productId || item.originalId;
+      const product = (window.products || []).find(p => p.id === prodId);
+      if (product) {
+        const newQty = Math.max(0, Number(product.quantity || 0) - Number(item.orderedQuantity || 0));
+        const threshold = Number(product.minThreshold || 5);
+        
+        if (newQty <= threshold) {
+          const title = newQty === 0 ? "🚨 نفاذ مخزون" : "⚠️ تنبيه نقص مخزون";
+          const msg = `المنتج "${product.name}" وصل للحد الحرِج. الكمية المتبقية: ${newQty}`;
+          window.createNotification(title, msg, "warning", "alert-triangle", "جرد المخزن", () => window.showAdminSubTab('i'));
+        }
+      }
+    });
 
     // مسح السلة بعد نجاح الطلب
     await window.clearCart();
@@ -110,6 +155,7 @@ export function listenToOrders() {
 
   return window.firestoreUtils.onSnapshot(q, (snap) => {
     const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    window.allAdminOrders = orders; // حفظ الطلبات للبحث لاحقاً
     renderOrdersList(orders, "admin-o-list", true);
     
     // تحديث شارة التنبيه للطلبات الجديدة (pending)
@@ -274,6 +320,9 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
   }).join("");
   if (window.lucide) lucide.createIcons();
 }
+
+// جعل دالة العرض متاحة للبحث من لوحة التحكم
+window.renderOrdersList = renderOrdersList;
 
 window.printInvoice = (id) => {
     const el = document.getElementById(id);

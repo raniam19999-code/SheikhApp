@@ -263,3 +263,57 @@ export function formatExp(input) {
     input.value = v;
   }
 }
+
+/**
+ * إظهار شريط تقدم لعمليات الخلفية الكبيرة
+ */
+export function showProgress(id, title, total) {
+  const container = document.getElementById("notification-container");
+  if (!container) return;
+  
+  let progressDiv = document.getElementById(`progress-${id}`);
+  if (!progressDiv) {
+    progressDiv = document.createElement("div");
+    progressDiv.id = `progress-${id}`;
+    progressDiv.className = "bg-white p-5 rounded-[2rem] shadow-2xl border border-emerald-100 w-80 pointer-events-auto animate-fade-in-up flex flex-col gap-3 mb-3 transition-all duration-300";
+    container.appendChild(progressDiv);
+  }
+  
+  progressDiv.innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-inner">
+        <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-[11px] font-black text-slate-800 truncate">${title}</p>
+        <p id="text-${id}" class="text-[9px] font-bold text-slate-400 mt-0.5">جاري التحضير...</p>
+      </div>
+    </div>
+    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
+      <div id="bar-${id}" class="bg-emerald-500 h-full transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.3)]" style="width: 0%"></div>
+    </div>
+    <div class="flex justify-end">
+       <span id="percent-${id}" class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100/50">0%</span>
+    </div>
+  `;
+  if (window.lucide) lucide.createIcons();
+}
+
+export function updateProgress(id, current, total) {
+  const percent = Math.round((current / total) * 100);
+  const bar = document.getElementById(`bar-${id}`);
+  const text = document.getElementById(`text-${id}`);
+  const per = document.getElementById(`percent-${id}`);
+  if (bar) bar.style.width = `${percent}%`;
+  if (text) text.innerText = `تمت معالجة ${current} من أصل ${total}`;
+  if (per) per.innerText = `${percent}%`;
+}
+
+export function hideProgress(id) {
+  const el = document.getElementById(`progress-${id}`);
+  if (el) {
+    el.style.opacity = "0";
+    el.style.transform = "scale(0.95) translateY(10px)";
+    setTimeout(() => el.remove(), 300);
+  }
+}
