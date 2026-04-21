@@ -1,5 +1,5 @@
 /**
- * admin-logic.js: نظام إدارة المخزن والتحديث الشامل عبر إكسل (SHADOW-ENGINE OPTIMIZED)
+ * admin-logic.js: محرك التحديث الشامل المطور (SHADOW-ENGINE PRO)
  */
 
 // دالة لتنظيف النصوص العربية للمطابقة الدقيقة (تجاهل الهمزات والتاء المربوطة والمسافات)
@@ -18,6 +18,9 @@ function superClean(text) {
   if (!text) return "";
   return text.toString()
     .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/[ىئ]/g, "ي")
     .replace(/[^\u0621-\u064A0-9a-zA-Z]/g, '') 
     .trim();
 }
@@ -772,32 +775,26 @@ export async function handleBulkImportFileUpload(event) {
 }
 window.handleBulkImportFileUpload = handleBulkImportFileUpload;
 
-/* 
-   ============================================================================
-   SHADOW-ENGINE V6.0 PRO: المحرك المصلح والشامل لرفع المنتجات
-   تم إصلاح مشكلة قراءة الاسم فقط وتجاوز السعر والكود والمخزون
-   ============================================================================
-*/
-
 export async function smartRowBasedUpdate(rows) {
   const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
   
-  const BATCH_SIZE = 400; 
-  const DELAY_MS = 1000;
+  const BATCH_SIZE = 450; 
+  const DELAY_MS = 800;
 
   let batch = window.firestoreUtils.writeBatch(window.db);
   let opCount = 0, updated = 0, created = 0, skipped = 0, batchCount = 0;
 
   window.isBulkUploading = true;
+
+  // بناء الفهرس الذكي للبحث السريع
   const productMap = new Map();
-  
   (window.products || []).forEach(p => {
-    const nKey = superClean(normalizeArabic(p.name || ""));
-    const sKey = superClean(p.sku || "");
+    const nKey = superClean(normalizeArabic(p.name));
+    const sKey = superClean(p.sku);
     if (nKey) productMap.set("n_" + nKey, p);
     if (sKey) {
       productMap.set("s_" + sKey, p);
-      productMap.set("s_" + sKey.replace(/^0+/, ""), p);
+      productMap.set("s_" + sKey.replace(/^0+/, ""), p); 
     }
   });
 
@@ -806,101 +803,106 @@ export async function smartRowBasedUpdate(rows) {
     try {
       await batch.commit();
       batchCount++;
+      console.log(`[SHADOW-ENGINE] ⚡ دفعة ${batchCount} تمت بنجاح (${opCount} عملية)`);
     } catch (err) {
-      console.error(`[Sync Error]:`, err);
+      console.error(`[SHADOW-ENGINE] ❌ خطأ في الدفعة:`, err);
     }
     await new Promise(r => setTimeout(r, DELAY_MS));
     batch = window.firestoreUtils.writeBatch(window.db);
     opCount = 0;
   };
 
-  if (window.showProgress) window.showProgress("bulk-upload", "جاري مزامنة كافة بيانات المنتجات...", rows.length);
-
   for (let i = 0; i < rows.length; i++) {
+    if (i % 200 === 0 && i > 0 && window.showNotification) {
+      window.showNotification(`جاري مطابقة الشيت... ${i} / ${rows.length}`);
+    }
+
     try {
       const row = rows[i];
-      
-      // استخراج البيانات مع توسيع نطاق البحث عن مسميات الأعمدة
-      const name = String(findValByParts(row, ["اسم الصنف", "الصنف", "البيان", "الاسم", "المنتج", "Product"]) || "").trim();
-      const sku = String(findValByParts(row, ["كود الصنف", "كودالصنف", "الكود", "كود", "SKU", "Barcode", "الرمز"]) || "").trim();
-      const priceRaw = findValByParts(row, ["سعر الجملة", "سعرالجملة", "السعر", "سعر", "جمله", "Price", "Rate"]);
-      const qtyRaw = findValByParts(row, ["رصيد المخزن", "رصيدالمخزن", "رصيد", "مخزون", "الكمية", "الكميه", "الرصيد الحالى", "Qty", "Stock"]);
-      const unit = String(findValByParts(row, ["الوحدة", "الوحده", "الوحدات", "التمييز", "Unit"]) || "كيس").trim();
-      const category = String(findValByParts(row, ["المجموعة", "المجموعه", "القسم", "التصنيف", "Category"]) || "عام").trim();
 
-      const price = parseExcelNumber(priceRaw);
-      const qty = parseExcelNumber(qtyRaw);
+      // الاستهداف المباشر لمسميات شيت أولاد الشيخ مع بدائل احتياطية
+      const sku = String(row["باركود"] || row["الكود"] || findValByParts(row, ["باركود", "كود", "sku"]) || "").trim();
+      const name = String(row["اسم الصنف"] || row["الصنف"] || findValByParts(row, ["اسم الصنف", "الصنف"]) || "").trim();
+      const qty = parseExcelNumber(row["رصيد المخزن"] || row["المخزن"] || findValByParts(row, ["رصيد المخزن", "رصيد", "مخزون"]));
+      const unit = String(row["الوحدة"] || row["الوحده"] || findValByParts(row, ["الوحدة", "الوحده"]) || "قطعة").trim();
+      const price = parseExcelNumber(row["السعر"] || row["سعر"] || findValByParts(row, ["السعر", "سعر"]));
+      const category = String(row["التصنيف"] || row["القسم"] || findValByParts(row, ["التصنيف", "القسم"]) || "عام").trim();
 
+      // تخطي الصفوف الفارغة تماماً
       if (!name && !sku) { skipped++; continue; }
 
       const nKey = superClean(normalizeArabic(name));
       const sKey = superClean(sku);
 
+      // محاولة مطابقة الصنف مع الموجود في قاعدة البيانات
       let existing = null;
       if (sKey) existing = productMap.get("s_" + sKey) || productMap.get("s_" + sKey.replace(/^0+/, ""));
       if (!existing && nKey) existing = productMap.get("n_" + nKey);
 
-      if (existing) {
-        const docRef = window.firestoreUtils.doc(productsRef, existing.id || existing.originalId);
-        
-        // قرار التحديث بناءً على وجود قيم جديدة في الملف
-        const finalPrice = price > 0 ? price : (existing.price || 0);
-        const finalQty = (qtyRaw !== "" && qtyRaw !== undefined) ? qty : (existing.quantity || 0);
+      // كبسولة البيانات المحدثة
+      const productData = {
+        name: name || (existing ? existing.name : ""),
+        sku: sku || (existing ? existing.sku : ""),
+        price: price > 0 ? price : (existing ? Number(existing.price || 0) : 0),
+        quantity: qty, 
+        unitMeasurement: unit, 
+        category: category !== "عام" ? category : (existing ? existing.category || "عام" : "عام"),
+        "prices.bag": price > 0 ? price : (existing ? Number((existing.prices && existing.prices.bag) || existing.price || 0) : 0),
+        status: qty > 0 ? "available" : "out_of_stock",
+        updatedAt: window.firestoreUtils.serverTimestamp(),
+      };
 
-        const hasChanges = (finalPrice !== Number(existing.price)) || 
-                           (finalQty !== Number(existing.quantity)) ||
-                           (sku && existing.sku !== sku) ||
-                           (unit !== "كيس" && existing.unitMeasurement !== unit) ||
-                           (category !== "عام" && existing.category !== category);
+      if (existing) {
+        // فحص التغييرات لتوفير استهلاك الفايربيس (تحديث فقط عند وجود اختلاف)
+        const currentPrice = Number(existing.price || 0);
+        const currentQty = Number(existing.quantity || 0);
+
+        const hasChanges = 
+          existing.name !== productData.name ||
+          existing.sku !== productData.sku ||
+          currentPrice !== productData.price ||
+          currentQty !== productData.quantity ||
+          existing.unitMeasurement !== productData.unitMeasurement ||
+          existing.category !== productData.category;
 
         if (hasChanges) {
-          batch.update(docRef, {
-            name: name || existing.name,
-            sku: sku || existing.sku || "",
-            price: finalPrice,
-            quantity: finalQty,
-            unitMeasurement: unit || existing.unitMeasurement || "كيس",
-            category: category || existing.category || "عام",
-            "prices.bag": finalPrice,
-            status: finalQty > 0 ? "available" : "out_of_stock",
-            updatedAt: window.firestoreUtils.serverTimestamp()
-          });
+          const docRef = window.firestoreUtils.doc(productsRef, existing.id || existing.originalId);
+          batch.update(docRef, productData);
           updated++;
           opCount++;
-        } else { skipped++; }
+          // تحديث الكائن المحلي لمنع التكرار في نفس الجلسة
+          Object.assign(existing, { price: productData.price, quantity: productData.quantity, sku: productData.sku });
+        } else {
+          skipped++;
+        }
       } else {
+        // إضافة صنف جديد بالكامل إذا لم يعثر عليه
         const newDocRef = window.firestoreUtils.doc(productsRef);
         batch.set(newDocRef, {
-          name: name || "منتج جديد",
-          sku: sku || "",
-          price: price,
-          quantity: qty,
-            unitMeasurement: unit || "كيس", // التأكد من وجود وحدة افتراضية
-          category: category,
-            // تعيين السعر والوحدة المتاحة بناءً على الوحدة المستخرجة من الشيت
-            prices: { [unit || "كيس"]: price },
-            availableUnits: { [unit || "كيس"]: true },
-            // التأكد من أن السعر الرئيسي للمنتج هو سعر الوحدة المستخرجة
-            price: price,
-          status: qty > 0 ? "available" : "out_of_stock",
+          ...productData,
+          availableUnits: { bag: true },
           createdAt: window.firestoreUtils.serverTimestamp(),
-          updatedAt: window.firestoreUtils.serverTimestamp()
         });
         created++;
         opCount++;
       }
 
       if (opCount >= BATCH_SIZE) await commitBatch();
-      if (i % 100 === 0) window.updateProgress?.("bulk-upload", i, rows.length);
     } catch (e) {
-      console.error(`Row ${i} Error:`, e);
+      console.error(`خطأ في الصف رقم ${i}:`, e);
     }
   }
 
   await commitBatch();
   window.isBulkUploading = false;
-  window.hideProgress?.("bulk-upload");
-  window.showToast(`✅ اكتمل الاستيراد: جديد (${created}) | تحديث (${updated}) | تخطي (${skipped})`, "success", 10000);
+
+  const msg = `تم معالجة الشيت: ${updated} تحديث | ${created} جديد | ${skipped} لم يتغير`;
+  if (window.showToast) window.showToast(msg, "success", 8000);
+
+  setTimeout(() => {
+    if (typeof window.refreshAllData === "function") window.refreshAllData();
+    else if (typeof window.renderAdminProducts === "function") window.renderAdminProducts();
+  }, 1500);
 }
 
 /* الأكواد السابقة تم وضعها في تعليق لضمان عمل المحرك الجديد فقط */
@@ -1156,90 +1158,6 @@ export function closeBulkImportModal() {
 }
 window.closeBulkImportModal = closeBulkImportModal;
 
-// معالجة وحفظ المنتجات المفلترة بالكلمات المفتاحية
-export async function saveBulkProducts() {
-  // 1. جلب وتنظيف الكلمات المفتاحية
-  const keywordsInput = document.getElementById("bulk-keywords");
-  const keywords = keywordsInput && keywordsInput.value
-    ? keywordsInput.value.split(",").map((k) => normalizeArabic(k.trim())).filter(Boolean)
-    : [];
-
-  // 2. جلب البيانات من النص الملصق أو من آخر ملف تم رفعه
-  let rows = window.lastUploadedRows || [];
-  const sheetDataArea = document.getElementById("bulk-sheet-data");
-  const sheetDataText = sheetDataArea ? sheetDataArea.value.trim() : "";
-
-  // إذا لم توجد بيانات مرفوعة مسبقاً، نحاول قراءة النص الملصق
-  if (rows.length === 0 && sheetDataText) {
-    rows = sheetDataText.split("\n").map((line) => {
-      const parts = line.split(/[\t,]/);
-      return {
-        "الاسم": (parts[0] || "").trim(),
-        "سعر": (parts[1] || "").trim(),
-        "كود": (parts[2] || "").trim(),
-        "مخزون": (parts[3] || "").trim(),
-      };
-    }).filter(r => r["الاسم"]);
-  }
-
-  if (rows.length === 0) {
-    return window.showToast("يرجى إدخال بيانات أو رفع ملف أولاً", "warning");
-  }
-
-  // 3. تصفية الصفوف بناءً على الكلمات المفتاحية
-  let filteredRows = rows.filter((row) => {
-    if (keywords.length === 0) return true; // إذا لم توجد كلمات، نأخذ الكل
-    const name = findValByParts(row, ["اسم الصنف", "الصنف", "الاسم", "البيان", "المنتج", "Product"]);
-    const normName = normalizeArabic(name);
-    return keywords.some((k) => normName.includes(k));
-  });
-
-  if (filteredRows.length === 0) {
-    return window.showToast("لا توجد أصناف مطابقة للكلمات المفتاحية المختارة", "info");
-  }
-
-  // جلب إعدادات القسم والوحدة من الواجهة
-  const targetCatId = document.getElementById("bulk-category-select")?.value || "";
-  const targetCatObj = (window.categories || []).find((c) => c.id === targetCatId);
-  const unit = document.getElementById("bulk-unit-select")?.value || "قطعة";
-  const quantities = document.getElementById("bulk-quantities-input")?.value || "";
-
-  const countText = keywords.length > 0 ? "مطابق للكلمات المفتاحية" : "إجمالي الملف";
-
-  if (confirm(`تم العثور على ${filteredRows.length} صنف (${countText}).\nهل تريد إضافتهم/تحديثهم الآن؟`)) {
-    window.showNotification(`جاري معالجة ${filteredRows.length} صنف...`);
-
-    const rowsToProcess = filteredRows.map((r) => {
-      const rowCleaned = {};
-      Object.keys(r).forEach((k) => (rowCleaned[k.trim()] = r[k]));
-
-      return {
-        ...rowCleaned,
-        category: targetCatObj ? targetCatObj.name : (rowCleaned["category"] || "عام"),
-        categoryId: targetCatId || rowCleaned["categoryId"] || "",
-        unitMeasurement: unit,
-        availableQuantities: quantities,
-        minStock: 5,
-      };
-    });
-
-    try {
-      // استدعاء دالة المعالجة الجماعية
-      await window.processBulkProducts(rowsToProcess);
-      
-      // إغلاق المودال وتفريغ الحقول
-      if (typeof closeBulkImportModal === "function") closeBulkImportModal();
-      if (document.getElementById("bulk-keywords")) document.getElementById("bulk-keywords").value = "";
-      if (document.getElementById("bulk-sheet-data")) document.getElementById("bulk-sheet-data").value = "";
-      
-    } catch (e) {
-      console.error(e);
-      window.showToast("حدث خطأ أثناء الحفظ: " + (e.message || ""), "error");
-    }
-  }
-}
-window.saveBulkProducts = saveBulkProducts;
-
 export function renderInventoryAudit() {
   const list = document.getElementById("admin-i-list");
   if (!list) return;
@@ -1282,20 +1200,8 @@ export function renderInventoryAudit() {
   lucide.createIcons();
 }
 
-export function openBulkPriceUpdateModal() {
-  const modal = document.getElementById("bulk-price-update-modal");
-  if (modal) { modal.classList.remove("hidden"); modal.classList.add("flex"); updateCategorySelects(); }
-}
-window.openBulkPriceUpdateModal = openBulkPriceUpdateModal;
-
-export function closeBulkPriceUpdateModal() {
-  const modal = document.getElementById("bulk-price-update-modal");
-  if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); }
-}
-window.closeBulkPriceUpdateModal = closeBulkPriceUpdateModal;
-
 export function updateCategorySelects() {
-  const selects = ["p-cat", "bulk-price-cat", "bulk-import-cat"];
+  const selects = ["p-cat", "bulk-import-cat"];
   selects.forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
@@ -1311,291 +1217,75 @@ export function updateCategorySelects() {
   });
 }
 
-export async function handleBulkPriceFileUpload(event) { await handleBulkFileUpload(event); }
-window.handleBulkPriceFileUpload = handleBulkPriceFileUpload;
+export async function saveBulkProducts() {
+  const keywordsInput = document.getElementById("bulk-keywords");
+  const keywords = keywordsInput && keywordsInput.value
+    ? keywordsInput.value.split(",").map((k) => normalizeArabic(k.trim())).filter(Boolean)
+    : [];
 
-// حفظ تحديثات الأسعار في قاعدة البيانات - نسخة محسّنة تعالج أكثر من 1500 منتج بكفاءة
-export async function saveBulkPriceUpdates() {
-  const catId = document.getElementById("bulk-price-cat")?.value;
-  const percentage = parseFloat(
-    document.getElementById("bulk-price-percentage")?.value || 0,
-  );
-  const rawData = document.getElementById("bulk-price-data")?.value.trim();
+  let rows = window.lastUploadedRows || [];
+  const sheetDataArea = document.getElementById("bulk-sheet-data");
+  const sheetDataText = sheetDataArea ? sheetDataArea.value.trim() : "";
 
-  const products = window.products || [];
-  if (products.length === 0) {
-    return window.showToast(
-      "لا توجد منتجات محملة، يرجى الانتظار ثم المحاولة مجدداً",
-      "warning",
-    );
+  if (rows.length === 0 && sheetDataText) {
+    rows = sheetDataText.split("\n").map((line) => {
+      const parts = line.split(/[\t,]/);
+      return {
+        "الاسم": (parts[0] || "").trim(),
+        "سعر": (parts[1] || "").trim(),
+        "كود": (parts[2] || "").trim(),
+        "مخزون": (parts[3] || "").trim(),
+      };
+    }).filter(r => r["الاسم"]);
   }
 
-  let targetCategoryName = "";
-  if (catId && catId !== "none") {
-    const cat = (window.categories || []).find((c) => c.id === catId);
-    if (cat) targetCategoryName = normalizeArabic(cat.name);
-  }
+  if (rows.length === 0) return window.showToast("يرجى إدخال بيانات أو رفع ملف أولاً", "warning");
 
-  const BATCH_SIZE = 450;
-  const DELAY_MS = 800;
-
-  const productsRef = window.firestoreUtils.collection(
-    window.db,
-    "artifacts",
-    window.appId,
-    "public",
-    "data",
-    "products",
-  );
-
-  let batch = window.firestoreUtils.writeBatch(window.db);
-  let opCount = 0;
-  let batchNum = 0;
-  let updateCount = 0;
-  let skippedCount = 0;
-  let notFoundCount = 0;
-
-  const commitAndReset = async () => {
-    if (opCount === 0) return;
-    try {
-      await batch.commit();
-      batchNum++;
-      console.log(`[Price Update] ✅ دفعة ${batchNum}: ${opCount} تحديث`);
-    } catch (err) {
-      console.error(`[Price Update] ❌ خطأ في دفعة ${batchNum}:`, err);
-      window.showToast(
-        `تحذير: خطأ في إرسال الدفعة (${err.message})`,
-        "warning",
-      );
-    }
-    await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-    batch = window.firestoreUtils.writeBatch(window.db);
-    opCount = 0;
-  };
-
-  // 🧠 بناء فهرس أكثر دقة باستخدام Prefixes لمنع تداخل الأسماء مع الأكواد
-  const productMap = new Map();
-  products.forEach((p) => {
-    const nameKey = superClean(p.name || "");
-    const skuKey = superClean(p.sku || "");
-    if (nameKey) productMap.set("name_" + nameKey, p);
-    if (skuKey) {
-      productMap.set("sku_" + skuKey, p);
-      productMap.set("sku_" + skuKey.replace(/^0+/, ""), p);
-    }
+  let filteredRows = rows.filter((row) => {
+    if (keywords.length === 0) return true; 
+    const name = findValByParts(row, ["اسم الصنف", "الصنف", "الاسم", "البيان", "المنتج", "Product"]);
+    const normName = normalizeArabic(name);
+    return keywords.some((k) => normName.includes(k));
   });
 
-  // ═══════════════════════════════════════════════════
-  // الحالة الأولى: التحديث عبر النص الملصق من الإكسل
-  // ═══════════════════════════════════════════════════
-  if (rawData) {
-    const lines = rawData.split("\n");
-    window.showNotification(`جاري معالجة ${lines.length} سطر...`);
+  if (filteredRows.length === 0) return window.showToast("لا توجد أصناف مطابقة للكلمات المفتاحية المختارة", "info");
 
-    if (window.showProgress) window.showProgress("price-update", "جاري تحديث الأسعار والمخزون...", lines.length);
+  const targetCatId = document.getElementById("bulk-import-cat")?.value || "";
+  const targetCatObj = (window.categories || []).find((c) => c.id === targetCatId);
+  const unit = document.getElementById("bulk-unit")?.value || "قطعة";
+  const quantities = document.getElementById("bulk-quantities")?.value || "";
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
+  const countText = keywords.length > 0 ? "مطابق للكلمات المفتاحية" : "إجمالي الملف";
 
-      // فصل البيانات بذكاء (التاب \t هو الفاصل الأساسي عند النسخ من الإكسل)
-      // نستخدم الفلتر لإزالة المسافات الفارغة الناتجة عن أعمدة فارغة
-      let parts = trimmedLine
-        .split(/\t|\|/)
-        .map((s) => s.trim())
-        .filter((s) => s !== "");
+  if (confirm(`تم العثور على ${filteredRows.length} صنف (${countText}).\nهل تريد إضافتهم/تحديثهم الآن؟`)) {
+    window.showNotification(`جاري معالجة ${filteredRows.length} صنف...`);
 
-      // إذا لم ينجح الفصل بالتاب، نلجأ للمسافات المتعددة
-      if (parts.length < 2) {
-        parts = trimmedLine
-          .split(/\s{2,}/)
-          .map((s) => s.trim())
-          .filter((s) => s !== "");
-      }
+    const rowsToProcess = filteredRows.map((r) => {
+      const rowCleaned = {};
+      Object.keys(r).forEach((k) => (rowCleaned[k.trim()] = r[k]));
 
-      if (parts.length < 2) continue; // يجب أن يكون هناك على الأقل معرف وسعر
+      return {
+        ...rowCleaned,
+        category: targetCatObj ? targetCatObj.name : (rowCleaned["category"] || "عام"),
+        categoryId: targetCatId || rowCleaned["categoryId"] || "",
+        unitMeasurement: unit,
+        availableQuantities: quantities,
+        minStock: 5,
+      };
+    });
 
-      const identifier = parts[0];
-      const priceVal = parseExcelNumber(parts[1]);
-
-      // استخراج الكمية إذا كان الإكسل المنسوخ يحتوي على 3 أعمدة (معرف، سعر، كمية) أو العكس
-      let qtyVal = null;
-      if (parts.length >= 3) {
-        qtyVal = parseExcelNumber(parts[2]);
-      }
-
-      if (!identifier || isNaN(priceVal) || priceVal <= 0) continue;
-
-      const normalizedIdentifier = superClean(identifier);
-      const cleanIdentifier = normalizedIdentifier.replace(/^0+/, "");
-
-      // 🔍 البحث الدقيق في الفهرس
-      let p =
-        productMap.get("sku_" + normalizedIdentifier) ||
-        productMap.get("sku_" + cleanIdentifier) ||
-        productMap.get("name_" + normalizedIdentifier);
-
-      // بحث احتياطي
-      if (!p) {
-        p = products.find((x) => {
-          const dbSku = superClean(x.sku || "");
-          const dbName = superClean(x.name || "");
-          return (
-            (dbSku &&
-              (dbSku === normalizedIdentifier ||
-                dbSku.replace(/^0+/, "") === cleanIdentifier)) ||
-            (dbName && dbName === normalizedIdentifier)
-          );
-        });
-      }
-
-      if (p) {
-        // فلترة القسم
-        if (catId === "none") {
-          const pCat = normalizeArabic(p.category || "");
-          if (pCat !== "" && pCat !== "عام") {
-            skippedCount++;
-            continue;
-          }
-        }
-
-        const finalPrice =
-          percentage !== 0 ? priceVal * (1 + percentage / 100) : priceVal;
-        const updatedPrice = Number(finalPrice.toFixed(2));
-
-        // التحقق من وجود تغيير في السعر أو في الكمية
-        const priceChanged =
-          Number(p.price) !== updatedPrice ||
-          !p.prices ||
-          Number((p.prices || {}).bag) !== updatedPrice;
-        const qtyChanged =
-          qtyVal !== null && !isNaN(qtyVal) && Number(p.quantity) !== qtyVal;
-
-        if (priceChanged || qtyChanged) {
-          const docRef = window.firestoreUtils.doc(productsRef, p.id);
-
-          const updateData = {
-            price: updatedPrice,
-            "prices.bag": updatedPrice,
-            "availableUnits.bag": true,
-            updatedAt: window.firestoreUtils.serverTimestamp(),
-          };
-
-          // تحديث الكمية إذا تم العثور عليها في النص المنسوخ
-          if (qtyChanged) {
-            updateData.quantity = qtyVal;
-            updateData.status = qtyVal > 0 ? "available" : "out_of_stock";
-          }
-
-          batch.update(docRef, updateData);
-
-          // تحديث المرجع المحلي لمنع التكرار
-          p.price = updatedPrice;
-          if (qtyChanged) p.quantity = qtyVal;
-
-          updateCount++;
-          opCount++;
-          if (opCount >= BATCH_SIZE) await commitAndReset();
-
-          if (i % 10 === 0 || i === lines.length - 1) {
-            if (window.updateProgress) window.updateProgress("price-update", i + 1, lines.length);
-          }
-        } else {
-          skippedCount++;
-        }
-      } else {
-        notFoundCount++;
-        console.warn(`[Price Update] غير موجود: "${identifier}"`);
-      }
+    try {
+      await window.smartRowBasedUpdate(rowsToProcess);
+      if (typeof closeBulkImportModal === "function") closeBulkImportModal();
+      if (document.getElementById("bulk-keywords")) document.getElementById("bulk-keywords").value = "";
+      if (document.getElementById("bulk-sheet-data")) document.getElementById("bulk-sheet-data").value = "";
+    } catch (e) {
+      console.error(e);
+      window.showToast("حدث خطأ أثناء الحفظ: " + (e.message || ""), "error");
     }
-  }
-  // ═══════════════════════════════════════════════════
-  // الحالة الثانية: تحديث شامل بنسبة مئوية (بدون ملف)
-  // ═══════════════════════════════════════════════════
-  else if (percentage !== 0) {
-    // ... [تم الاحتفاظ بنفس الكود الخاص بك في هذه الجزئية لأنه سليم]
-    window.showNotification(
-      `جاري تحديث ${products.length} منتج بنسبة ${percentage}%...`,
-    );
-    
-    if (window.showProgress) window.showProgress("percent-update", `تعديل الأسعار بنسبة ${percentage}%...`, products.length);
-
-    let processed = 0;
-    for (const p of products) {
-      if (!p.id) continue;
-      processed++;
-      if (processed % 200 === 0) {
-        window.showNotification(
-          `جاري التحديث... ${processed} / ${products.length}`,
-        );
-      }
-
-      if (processed % 20 === 0 || processed === products.length) {
-        if (window.updateProgress) window.updateProgress("percent-update", processed, products.length);
-      }
-
-      const pCat = normalizeArabic(p.category || "");
-      if (catId === "none" && pCat !== "" && pCat !== "عام") continue;
-      if (targetCategoryName && pCat !== targetCategoryName) continue;
-
-      const oldPrice = parseFloat(p.price || 0);
-      if (oldPrice <= 0) continue;
-      const newPrice = Number((oldPrice * (1 + percentage / 100)).toFixed(2));
-
-      const needsUpdate =
-        !isNaN(newPrice) &&
-        (Number(p.price) !== newPrice ||
-          !p.prices ||
-          Number((p.prices || {}).bag) !== newPrice);
-
-      if (needsUpdate) {
-        batch.update(window.firestoreUtils.doc(productsRef, p.id), {
-          price: newPrice,
-          "prices.bag": newPrice,
-          updatedAt: window.firestoreUtils.serverTimestamp(),
-        });
-        updateCount++;
-        opCount++;
-        if (opCount >= BATCH_SIZE) await commitAndReset();
-      } else {
-        skippedCount++;
-      }
-    }
-  } else {
-    return window.showToast("يرجى إدخال نسبة تغيير أو لصق بيانات", "warning");
-  }
-
-  // إتمام آخر دفعة
-  await commitAndReset();
-
-  if (updateCount > 0) {
-    const parts = [`✅ تم تحديث ${updateCount} منتج`];
-    if (skippedCount > 0) parts.push(` ${skippedCount} متطابق`);
-    if (notFoundCount > 0) parts.push(`⚠️ ${notFoundCount} غير موجود`);
-    window.showToast(
-      parts.join(" | "),
-      notFoundCount > 0 ? "warning" : "success",
-      8000,
-    );
-
-    if (typeof closeBulkPriceUpdateModal === "function")
-      closeBulkPriceUpdateModal();
-
-    // يفضل تحديث الواجهة بعد الانتهاء
-    setTimeout(() => {
-      if (typeof window.refreshAllData === "function") window.refreshAllData();
-    }, 1000);
-  } else if (notFoundCount > 0 && updateCount === 0) {
-    window.showToast(
-      `⚠️ لم يتم تحديث أي شيء! ${notFoundCount} صنف غير موجود - تأكد من تطابق الأسماء/الأكواد`,
-      "warning",
-      8000,
-    );
-  } else {
-    window.showToast("البيانات متطابقة بالفعل ولا تحتاج لتحديث", "info", 5000);
   }
 }
+window.saveBulkProducts = saveBulkProducts;
 
 // 3. تصدير تقرير النواقص إلى ملف إكسل
 window.exportShortageReport = function () {
