@@ -874,15 +874,24 @@ Object.entries(exposed).forEach(([name, fn]) => {
   const style = document.createElement('style');
   style.id = 'global-layout-styles';
   style.textContent = `
+    /* منع التمرير الأفقي العام وتعديل البادنج */
+    html, body { overflow-x: hidden; width: 100%; position: relative; }
+    .container, #main-content { max-width: 100%; overflow-x: hidden; padding-left: 0.5rem; padding-right: 0.5rem; }
+
     /* هواتف: 3 منتجات في الصف وتقليل الأحجام لتناسب المساحة */
     @media (max-width: 640px) {
       #products-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 6px !important;
+        gap: 8px !important;
+        padding: 4px !important;
       }
-      #products-grid > div { padding: 8px !important; border-radius: 1.5rem !important; }
+      #products-grid > div { padding: 6px !important; border-radius: 1rem !important; }
       #products-grid h4 { font-size: 11px !important; min-height: 2.2rem !important; }
-      #products-grid img { height: 100px !important; }
+      #products-grid .relative.h-28 { height: 80px !important; }
+      
+      /* ضبط لوحة التحكم للهواتف */
+      .is-admin main { padding: 10px !important; }
+      #admin-p-list, #admin-o-list { gap: 10px !important; }
     }
 
     /* شاشات كبيرة: 5 منتجات في الصف */

@@ -339,14 +339,14 @@ export function renderAdminProducts(productsToRender = window.products) {
   let html = sortedProducts
     .map(
       (p) => `
-    <div class="bg-white p-3 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-sm hover:shadow-md transition-all group gap-3">
-      <div class="flex items-center gap-3 w-full sm:w-auto">
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-sm hover:shadow-md transition-all group gap-4 overflow-hidden">
+      <div class="flex items-center gap-3 w-full sm:w-auto min-w-0">
         <input type="checkbox" name="product-checkbox" value="${p.id}" onchange="window.updateBulkDeleteButton()" class="product-item-checkbox w-5 h-5 sm:w-4 sm:h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
         <div class="w-12 h-12 sm:w-10 sm:h-10 rounded-xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0]">
           <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover">
         </div>
-        <div class="min-w-0 flex-1">
-          <p class="font-bold text-xs sm:text-sm text-slate-800 truncate">${p.name}</p>
+        <div class="min-w-0 flex-1 overflow-hidden">
+          <p class="font-bold text-xs sm:text-sm text-slate-800 truncate break-words">${p.name}</p>
           <div class="flex flex-wrap items-center gap-1 mt-1">
             <span class="text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded">${p.category}</span>
             <span class="text-[9px] text-slate-400 bg-slate-100 px-1 rounded font-mono">كود: ${p.sku || "—"}</span>
@@ -355,7 +355,7 @@ export function renderAdminProducts(productsToRender = window.products) {
           </div>
         </div>
       </div>
-      <div class="flex gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
+      <div class="flex gap-2 w-full sm:w-auto justify-end border-t border-slate-50 sm:border-t-0 pt-3 sm:pt-0 shrink-0">
         <button onclick="openProductModal(${JSON.stringify(p).replace(/"/g, "&quot;")})" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
         <button onclick="deleteProduct('${p.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>
@@ -1243,10 +1243,40 @@ window.saveBulkProducts = saveBulkProducts;
 export function renderInventoryAudit() {
   const list = document.getElementById("admin-i-list");
   if (!list) return;
-  let html = `<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"><div class="p-4 bg-slate-50 border-b flex justify-between items-center"><h4 class="font-black text-slate-800 text-sm">تقرير حالة المخزن</h4><button onclick="exportShortageReport()" class="text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold">تصدير النواقص</button></div><div class="overflow-x-auto no-scrollbar"><table class="w-full text-right text-xs min-w-[600px]"><thead><tr class="bg-slate-50 text-slate-500"><th class="p-4">المنتج</th><th class="p-4">المخزون</th><th class="p-4">تعديل سريع</th></tr></thead><tbody class="divide-y">`;
+  let html = `
+    <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+      <div class="p-5 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center gap-4">
+        <h4 class="font-black text-slate-800 text-sm truncate">تقرير حالة المخزن</h4>
+        <button onclick="exportShortageReport()" class="text-[10px] bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold shadow-sm whitespace-nowrap">تصدير النواقص</button>
+      </div>
+      <div class="overflow-x-auto no-scrollbar">
+        <table class="w-full text-right text-xs">
+          <thead>
+            <tr class="bg-slate-50/30 text-slate-500 border-b border-slate-50">
+              <th class="p-4 font-black">المنتج</th>
+              <th class="p-4 font-black text-center">المخزون</th>
+              <th class="p-4 font-black text-left">تعديل</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">`;
   window.products.sort((a,b) => (a.quantity||0) - (b.quantity||0)).forEach(p => {
     const qty = Number(p.quantity||0);
-    html += `<tr><td class="p-4"><b>${p.name}</b><br><small>SKU: ${p.sku||'-'}</small></td><td class="p-4 font-black">${qty}</td><td class="p-4"><input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-16 p-2 border rounded-xl"><button onclick="updateProductQty('${p.id}')" class="p-2 ml-2 bg-emerald-50 text-emerald-600 rounded-xl"><i data-lucide="check" class="w-4 h-4"></i></button></td></tr>`;
+    html += `
+      <tr class="hover:bg-slate-50/30 transition-colors">
+        <td class="p-4 max-w-[150px]">
+          <p class="font-bold text-slate-800 truncate">${p.name}</p>
+          <p class="text-[10px] text-slate-400 font-mono">SKU: ${p.sku||'-'}</p>
+        </td>
+        <td class="p-4 text-center font-black text-slate-700">${qty}</td>
+        <td class="p-4">
+          <div class="flex items-center justify-end gap-2">
+            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-14 p-2 border border-slate-200 rounded-lg text-center font-bold text-xs focus:border-emerald-500 outline-none">
+            <button onclick="updateProductQty('${p.id}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+              <i data-lucide="check" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
   });
   list.innerHTML = html + `</tbody></table></div></div>`;
   lucide.createIcons();
