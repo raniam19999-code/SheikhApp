@@ -333,12 +333,12 @@ export function renderAdminProducts(productsToRender = window.products) {
   const catOptions = sortedSubCats
     .map((c) => {
       const parent = (window.categories || []).find((p) => p.id === c.parentId);
-      return `<option value="${c.id}">${parent ? parent.name + " » " : ""}${c.name}</option>`;
+      return `<option value="${c.id}">${parent ? parent.name + " ← " : ""}${c.name}</option>`;
     })
     .join("");
 
   const bulkActions = `
-    <div class="col-span-full flex flex-wrap items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-2 gap-3">
+    <div class="col-span-full flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-2 gap-3">
       <div class="flex items-center gap-2">
         <input type="checkbox" id="select-all-products" onclick="window.toggleSelectAllProducts(this.checked)" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
         <label for="select-all-products" class="text-xs font-bold text-slate-600 cursor-pointer">تحديد الكل</label>
@@ -356,7 +356,7 @@ export function renderAdminProducts(productsToRender = window.products) {
       </div>
     </div>`;
 
-  const addBtn = `<button onclick="openProductModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all mb-4">+ إضافة منتج جديد</button>`;
+  const addBtn = `<button onclick="openProductModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all mb-4 active:scale-95 w-full">+ إضافة منتج جديد</button>`;
 
   const products = productsToRender || [];
 
@@ -368,15 +368,15 @@ export function renderAdminProducts(productsToRender = window.products) {
   let html = sortedProducts
     .map(
       (p) => `
-    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group">
-      <div class="flex items-center gap-3">
-        <input type="checkbox" name="product-checkbox" value="${p.id}" onchange="window.updateBulkDeleteButton()" class="product-item-checkbox w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-        <div class="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0]">
+    <div class="bg-white p-3 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-sm hover:shadow-md transition-all group gap-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <input type="checkbox" name="product-checkbox" value="${p.id}" onchange="window.updateBulkDeleteButton()" class="product-item-checkbox w-5 h-5 sm:w-4 sm:h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+        <div class="w-12 h-12 sm:w-10 sm:h-10 rounded-xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0]">
           <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover">
         </div>
-        <div>
-          <p class="font-bold text-xs text-slate-800">${p.name}</p>
-          <div class="flex items-center gap-1 mt-0.5 whitespace-nowrap overflow-hidden">
+        <div class="min-w-0 flex-1">
+          <p class="font-bold text-xs sm:text-sm text-slate-800 truncate">${p.name}</p>
+          <div class="flex flex-wrap items-center gap-1 mt-1">
             <span class="text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded">${p.category}</span>
             <span class="text-[9px] text-slate-400 bg-slate-100 px-1 rounded font-mono">كود: ${p.sku || "—"}</span>
             <span class="text-[9px] text-amber-600 bg-amber-50 px-1 rounded font-bold">س: ${Number(p.price || (p.prices && p.prices.bag) || 0).toFixed(2)}</span>
@@ -384,7 +384,7 @@ export function renderAdminProducts(productsToRender = window.products) {
           </div>
         </div>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
         <button onclick="openProductModal(${JSON.stringify(p).replace(/"/g, "&quot;")})" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
         <button onclick="deleteProduct('${p.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>
@@ -394,13 +394,13 @@ export function renderAdminProducts(productsToRender = window.products) {
     .join(""); // Moved this line up
 
   list.innerHTML = `
-    <div class="col-span-full bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between mb-4">
+    <div class="col-span-full bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col xs:flex-row items-start xs:items-center justify-between mb-4 gap-3">
       <div class="flex items-center gap-3">
-        <i data-lucide="package" class="w-6 h-6 text-emerald-600"></i>
+        <i data-lucide="package" class="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600"></i>
         <p class="font-black text-slate-800 text-sm">إجمالي المنتجات: <span id="admin-products-count" class="text-emerald-600">${productsCount}</span></p>
       </div>
       <div class="flex items-center gap-3">
-        <i data-lucide="folder" class="w-6 h-6 text-blue-600"></i>
+        <i data-lucide="folder" class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"></i>
         <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span id="admin-categories-count" class="text-blue-600">${categoriesCount}</span></p>
       </div>
     </div>
@@ -1970,18 +1970,19 @@ export function renderInventoryAudit() {
   const products = window.products || [];
 
   let html = `
-    <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+    <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
       <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
         <h4 class="font-black text-slate-800 text-sm">تقرير حالة المخزن</h4>
         <button onclick="exportShortageReport()" class="text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold">تصدير النواقص</button>
       </div>
-      <table class="w-full text-right text-xs">
+      <div class="overflow-x-auto no-scrollbar">
+      <table class="w-full text-right text-xs min-w-[600px]">
         <thead>
           <tr class="bg-slate-50 text-slate-500">
-            <th class="p-3">المنتج</th>
-            <th class="p-3">المخزون</th>
-            <th class="p-3">الحالة</th>
-            <th class="p-3 text-center">تحديث سريع</th>
+            <th class="p-4">المنتج والبيانات</th>
+            <th class="p-4">المخزون</th>
+            <th class="p-4">الحالة</th>
+            <th class="p-4 text-center">تعديل سريع</th>
           </tr>
         </thead>
         <tbody class="divide-y">
@@ -1996,8 +1997,8 @@ export function renderInventoryAudit() {
       let statusText = "متوفر";
 
       if (qty <= 0) {
-        statusColor = "bg-red-500";
-        statusText = "نفذت الكمية";
+        statusColor = "bg-red-600";
+        statusText = "نفذ";
       } else if (qty <= min) {
         statusColor = "bg-amber-500";
         statusText = "كمية حرجة";
@@ -2017,19 +2018,19 @@ export function renderInventoryAudit() {
         </td>
         <td class="p-4 font-mono font-black text-sm">${qty}</td>
         <td class="p-4">
-          <span class="${statusColor} text-white px-2 py-0.5 rounded-md text-[9px] font-bold">${statusText}</span>
+          <span class="${statusColor} text-white px-1.5 py-0.5 rounded-lg text-[8px] font-black shadow-sm">${statusText}</span>
         </td>
         <td class="p-4">
           <div class="flex items-center justify-center gap-2">
-            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-12 p-1 border rounded text-center">
-            <button onclick="updateProductQty('${p.id}')" class="text-emerald-600"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-16 p-2 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold focus:border-emerald-500 outline-none transition-colors">
+            <button onclick="updateProductQty('${p.id}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><i data-lucide="check" class="w-4 h-4"></i></button>
           </div>
         </td>
       </tr>
     `;
     });
 
-  html += `</tbody></table></div>`;
+  html += `</tbody></table></div></div>`;
   list.innerHTML = html;
   lucide.createIcons();
 }
@@ -2543,7 +2544,7 @@ window.exportShortageReport = function () {
         "القسم": p.category || "عام",
         "المخزون الحالي": Number(p.quantity || 0),
         "حد الطلب المحدد": Number(p.minThreshold || 5),
-        "الحالة": Number(p.quantity || 0) <= 0 ? "⚠️ نفذت الكمية" : "🟠 كمية حرجة",
+        "الحالة": Number(p.quantity || 0) <= 0 ? "⚠️ خلصان" : "🟠 كمية حرجة",
       };
 
       // إضافة كافة الأسعار المتاحة لكل الوحدات لضمان شمولية التقرير للإدارة

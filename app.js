@@ -307,7 +307,7 @@ window.renderProducts = function (productsToRender = window.products) {
       return `
         <div class="bg-white rounded-3xl sm:rounded-[2.5rem] p-3 sm:p-4 border border-slate-100 shadow-sm active:scale-[0.98] sm:hover:shadow-2xl sm:hover:shadow-emerald-100/50 sm:hover:-translate-y-1.5 transition-all duration-300 group relative ${isOutOfStock ? "opacity-75" : ""}">
             ${editBtn}
-            ${isOutOfStock ? `<span class="absolute top-3 ${isAdmin ? "left-12" : "left-3"} bg-red-500 text-white text-[8px] px-2.5 py-1 rounded-full z-20 font-black shadow-lg">نفذت الكمية</span>` : ""}
+            ${isOutOfStock ? `<span class="absolute top-3 ${isAdmin ? "left-12" : "left-3"} bg-red-600 text-white text-[7px] px-2 py-0.5 rounded-lg z-20 font-black shadow-md border border-red-400">خلصان</span>` : ""}
             
             <div class="relative h-32 sm:h-44 mb-3 sm:mb-4 rounded-2xl sm:rounded-[2rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner">
                 <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" loading="lazy">
