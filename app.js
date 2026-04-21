@@ -132,8 +132,8 @@ window.currentParentId = null; // تتبع مستوى الأقسام (رئيسي
 let loadAttempts = 0;
 
 // نظام التحميل التدريجي (Pagination)
-window.itemsPerPage = 10;
-window.currentRenderLimit = 10;
+window.itemsPerPage = 20;
+window.currentRenderLimit = 20;
 window.lastRenderedProducts = [];
 
 window.addEventListener("beforeinstallprompt", (e) => {
@@ -305,43 +305,43 @@ window.renderProducts = function (productsToRender = window.products) {
         : "";
 
       return `
-        <div class="bg-white rounded-3xl sm:rounded-[2.5rem] p-3 sm:p-4 border border-slate-100 shadow-sm active:scale-[0.98] sm:hover:shadow-2xl sm:hover:shadow-emerald-100/50 sm:hover:-translate-y-1.5 transition-all duration-300 group relative ${isOutOfStock ? "opacity-75" : ""}">
+        <div class="bg-white rounded-2xl sm:rounded-[2rem] p-2 sm:p-4 border border-slate-100 shadow-sm active:scale-[0.98] sm:hover:shadow-xl sm:hover:shadow-emerald-100/40 sm:hover:-translate-y-1 transition-all duration-300 group relative ${isOutOfStock ? "opacity-75" : ""}">
             ${editBtn}
             ${isOutOfStock ? `<span class="absolute top-3 ${isAdmin ? "left-12" : "left-3"} bg-red-600 text-white text-[7px] px-2 py-0.5 rounded-lg z-20 font-black shadow-md border border-red-400">خلصان</span>` : ""}
             
-            <div class="relative h-32 sm:h-44 mb-3 sm:mb-4 rounded-2xl sm:rounded-[2rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner">
+            <div class="relative h-28 sm:h-40 mb-2 sm:mb-4 rounded-xl sm:rounded-[1.5rem] overflow-hidden bg-slate-50 border border-slate-50 shadow-inner">
                 <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" loading="lazy">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </div>
 
             <div class="px-1 text-right">
-                <p class="text-[10px] text-emerald-600 font-black mb-1.5 tracking-wide uppercase">${p.category || "عام"}</p>
-                <h4 class="font-bold text-slate-800 text-xs sm:text-sm mb-2 leading-tight group-hover:text-emerald-700 transition-colors line-clamp-2 min-h-[2.5rem]">${p.name}</h4>
+                <p class="text-[8px] text-emerald-600 font-black mb-1 tracking-wide uppercase">${p.category || "عام"}</p>
+                <h4 class="font-bold text-slate-800 text-[11px] sm:text-sm mb-1.5 leading-tight group-hover:text-emerald-700 transition-colors line-clamp-2 min-h-[2.2rem]">${p.name}</h4>
                 
-                <div class="bg-slate-50/80 p-2 sm:p-3 rounded-2xl sm:rounded-[1.5rem] border border-slate-100/60 mb-3 shadow-sm">
-                    <div class="flex items-center justify-between text-[9px] sm:text-[11px] mb-2 pb-2 border-b border-slate-200/50">
-                        <span class="flex items-center gap-1.5 font-mono text-slate-500"><i data-lucide="tag" class="w-3.5 h-3.5 text-slate-400"></i> ${p.sku || "---"}</span>
-                        <span class="flex items-center gap-1.5 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100/50">${p.unitMeasurement || "متوفر"}</span>
+                <div class="bg-slate-50/60 p-1.5 sm:p-3 rounded-xl sm:rounded-[1.25rem] border border-slate-100 mb-2 shadow-sm">
+                    <div class="flex items-center justify-between text-[7px] sm:text-[9px] mb-1.5 pb-1.5 border-b border-slate-200/40">
+                        <span class="flex items-center gap-1 font-mono text-slate-400"><i data-lucide="tag" class="w-2.5 h-2.5 opacity-50"></i> ${p.sku || "---"}</span>
+                        <span class="flex items-center gap-1 font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/30">${p.unitMeasurement || "متوفر"}</span>
                     </div>
-                    <div class="product-price-wrapper min-h-[40px] sm:min-h-[50px] flex items-center justify-center">
+                    <div class="product-price-wrapper min-h-[35px] sm:min-h-[45px] flex items-center justify-center">
                         ${priceBlock}
                     </div>
                 </div>
 
-                <div class="mt-2 sm:mt-4 flex items-center gap-2">
-                    <div class="flex-[1.2] flex items-center bg-slate-50/80 rounded-[1.25rem] border border-slate-100 p-1">
-                        <button onclick="const inp=this.nextElementSibling; if(inp.value < ${maxQty}) inp.stepUp();" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all active:scale-95">+</button>
-                        <input type="number" id="qty-${p.id}" value="1" min="1" max="${maxQty}" class="w-full bg-transparent text-center text-sm font-black text-slate-800 outline-none">
-                        <button onclick="const inp=this.previousElementSibling; inp.stepDown();" class="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all active:scale-95 px-2.5">-</button>
+                <div class="mt-1 sm:mt-4 flex items-center gap-1.5">
+                    <div class="flex-[1.4] flex items-center bg-slate-50/80 rounded-xl border border-slate-100 p-0.5">
+                        <button onclick="const inp=document.getElementById('qty-${p.id}'); let v=parseInt(inp.value)||1; if(v < ${maxQty || 999}) inp.value = v + 1;" class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg transition-all active:scale-95 text-xs font-bold">+</button>
+                        <input type="number" id="qty-${p.id}" value="1" min="1" max="${maxQty}" class="w-full bg-transparent text-center text-[11px] font-black text-slate-800 outline-none">
+                        <button onclick="const inp=document.getElementById('qty-${p.id}'); let v=parseInt(inp.value)||1; if(v > 1) inp.value = v - 1;" class="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-all active:scale-95 text-xs font-bold">-</button>
                     </div>
                     
                     <button 
                         onclick="window.addToCart('${p.id}', '${safeName}', ${defaultPrice}, 'bag')"
                         data-id="${p.id}"
-                        class="add-to-cart-btn p-3 sm:p-4 bg-[#1B4332] text-white rounded-2xl sm:rounded-[1.25rem] shadow-xl shadow-emerald-100 hover:bg-[#2D6A4F] active:scale-90 transition-all duration-300 ${isOutOfStock ? "grayscale cursor-not-allowed" : ""}"
+                        class="add-to-cart-btn p-2.5 sm:p-4 bg-[#1B4332] text-white rounded-xl sm:rounded-[1.25rem] shadow-lg shadow-emerald-100 hover:bg-[#2D6A4F] active:scale-90 transition-all duration-300 ${isOutOfStock ? "grayscale cursor-not-allowed" : ""}"
                         ${isOutOfStock ? "disabled" : ""}
                     >
-                        <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                        <i data-lucide="shopping-cart" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                     </button>
                 </div>
             </div>
@@ -867,3 +867,30 @@ const exposed = {
 Object.entries(exposed).forEach(([name, fn]) => {
   if (typeof fn === "function") window[name] = fn;
 });
+
+// حقن CSS مخصص لتغيير توزيع المنتجات ليصبح 5 في الصف على الكمبيوتر و 3 في الموبايل
+(function injectGlobalLayoutCSS() {
+  if (document.getElementById('global-layout-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'global-layout-styles';
+  style.textContent = `
+    /* هواتف: 3 منتجات في الصف وتقليل الأحجام لتناسب المساحة */
+    @media (max-width: 640px) {
+      #products-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+      }
+      #products-grid > div { padding: 8px !important; border-radius: 1.5rem !important; }
+      #products-grid h4 { font-size: 11px !important; min-height: 2.2rem !important; }
+      #products-grid img { height: 100px !important; }
+    }
+
+    /* شاشات كبيرة: 5 منتجات في الصف */
+    @media (min-width: 1024px) {
+      #products-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+})();

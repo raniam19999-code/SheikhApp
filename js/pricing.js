@@ -81,10 +81,10 @@ window.renderPriceBlock = function (product) {
         class="unit-selector-btn ${isActive ? 'active-unit bg-[#1B4332] text-white border-[#1B4332]' : 'bg-white text-slate-700 border-slate-200'} border px-2 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center gap-1.5 hover:border-[#1B4332] shadow-sm grow justify-center touch-manipulation"
         onclick="updateProductUnitSelection('${product.id}', '${unitKey}', ${pVal}, event)"
       >
-        <i data-lucide="${unitLabels[unitKey].icon}" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        <i data-lucide="${unitLabels[unitKey].icon}" class="w-3 h-3 sm:w-4 sm:h-4 opacity-70"></i>
         <div class="flex flex-col items-start leading-tight">
-          <span class="text-[8px] sm:text-[9px] opacity-70">${unitLabels[unitKey].label}</span>
-          <span class="text-sm sm:text-base font-bold">${pVal.toFixed(2)} <span class="text-[8px] ${isActive ? 'text-white/80' : 'text-emerald-600'}">EGP</span></span>
+          <span class="text-[7px] sm:text-[8px] opacity-60">${unitLabels[unitKey].label}</span>
+          <span class="text-[11px] sm:text-[13px] font-black">${pVal.toFixed(2)} <span class="text-[7px] ${isActive ? 'text-white/70' : 'text-emerald-600'}">EGP</span></span>
         </div>
       </button>
     `;
@@ -94,9 +94,9 @@ window.renderPriceBlock = function (product) {
   if (!html || html.trim() === "" || Object.values(prices).every(v => v <= 0)) {
     // إذا لم تكن هناك وحدات مفعلة، نظهر السعر الأساسي للمنتج بشكل بارز جداً
     const finalDisplayPrice = basePrice > 0 ? basePrice : 0;
-    return `<div class="flex items-center justify-between bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200 w-full shadow-inner">
-              <span class="text-xs font-black text-[#1B4332]">سعر المنتج:</span>
-              <p class="font-black text-[#1B4332] text-2xl tracking-tighter">${Number(finalDisplayPrice).toFixed(2)} <span class="currency-shic text-xs">EGP</span></p>
+    return `<div class="flex items-center justify-between bg-emerald-50/60 p-2 sm:p-3 rounded-xl border border-emerald-100 w-full shadow-inner">
+              <span class="text-[9px] font-black text-[#1B4332] opacity-60">السعر:</span>
+              <p class="font-black text-[#1B4332] text-base sm:text-xl tracking-tighter">${Number(finalDisplayPrice).toFixed(2)} <span class="currency-shic text-[9px]">EGP</span></p>
             </div>`;
   }
 
