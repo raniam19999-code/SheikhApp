@@ -295,13 +295,18 @@ window.renderProducts = function (productsToRender = window.products) {
       // التحقق من صلاحية المدير لإظهار زر التعديل السريع
       const isAdmin = document.body.classList.contains("is-admin");
       const editBtn = isAdmin
-        ? `
-        <button onclick="event.stopPropagation(); window.openProductModal(${JSON.stringify(p).replace(/"/g, "&quot;")})" 
-                class="absolute top-3 right-3 bg-white/90 backdrop-blur p-2 rounded-xl text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all z-30" 
-                title="تعديل المنتج">
-          <i data-lucide="edit-3" class="w-4 h-4"></i>
-        </button>
-      `
+        ? `<div class="absolute top-3 right-3 flex flex-col gap-2 z-30">
+            <button onclick="event.stopPropagation(); window.openProductModal(${JSON.stringify(p).replace(/"/g, "&quot;")})" 
+                    class="bg-white/90 backdrop-blur p-2 rounded-xl text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all" 
+                    title="تعديل المنتج">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </button>
+            <button onclick="event.stopPropagation(); window.deleteProduct('${p.id}')" 
+                    class="bg-white/90 backdrop-blur p-2 rounded-xl text-red-600 shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all" 
+                    title="حذف المنتج">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>`
         : "";
 
       return `
@@ -411,12 +416,19 @@ window.renderSubcategoriesInMainGrid = function (parentId = null) {
         );
         const parentCat = window.categories.find((p) => p.id === sub.parentId);
 
-        const editBtn = isAdmin 
-          ? `<button onclick="event.stopPropagation(); window.openCategoryModal(${JSON.stringify(sub).replace(/"/g, "&quot;")})" 
-                     class="absolute top-3 right-3 bg-white/90 backdrop-blur p-2 rounded-xl text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all z-30" 
-                     title="تعديل القسم">
-               <i data-lucide="edit-3" class="w-4 h-4"></i>
-             </button>` 
+        const editBtn = isAdmin
+          ? `<div class="absolute top-3 right-3 flex flex-col gap-2 z-30">
+              <button onclick="event.stopPropagation(); window.openCategoryModal(${JSON.stringify(sub).replace(/"/g, "&quot;")})"
+                      class="bg-white/90 backdrop-blur p-2 rounded-xl text-blue-600 shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"
+                      title="تعديل القسم">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="event.stopPropagation(); window.deleteCategory('${sub.id}')"
+                      class="bg-white/90 backdrop-blur p-2 rounded-xl text-red-600 shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"
+                      title="حذف القسم">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>`
           : "";
 
         return `
@@ -902,7 +914,7 @@ Object.entries(exposed).forEach(([name, fn]) => {
     /* شاشات كبيرة: 5 منتجات في الصف */
     @media (min-width: 1024px) {
       #products-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
       }
     }
   `;

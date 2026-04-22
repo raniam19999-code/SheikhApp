@@ -778,13 +778,16 @@ window.handleBulkImportFileUpload = handleBulkImportFileUpload;
 export async function smartRowBasedUpdate(rows) {
   const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
   
-  const BATCH_SIZE = 450; 
-  const DELAY_MS = 800;
+  const BATCH_SIZE = 400; // تم الإرجاع لـ 400 كما طلبت لضمان الدقة العالية
+  const DELAY_MS = 1000; // إبطاء طفيف لضمان ثبات العمليات الضخمة
 
   let batch = window.firestoreUtils.writeBatch(window.db);
   let opCount = 0, updated = 0, created = 0, skipped = 0, batchCount = 0;
 
   window.isBulkUploading = true;
+  const progressId = 'bulk-upload-progress';
+  window.showProgress(progressId, 'جاري معالجة ملف المنتجات وتحديثها', rows.length);
+
 
   // بناء الفهرس الذكي للبحث السريع
   const productMap = new Map();
@@ -813,10 +816,11 @@ export async function smartRowBasedUpdate(rows) {
   };
 
   for (let i = 0; i < rows.length; i++) {
-    if (i % 200 === 0 && i > 0 && window.showNotification) {
-      window.showNotification(`جاري مطابقة الشيت... ${i} / ${rows.length}`);
+    // تحديث شريط التقدم كل 50 صف لضمان سلاسة الواجهة
+    if (i % 50 === 0 || i === rows.length - 1) {
+      window.updateProgress(progressId, i + 1, rows.length);
     }
-
+    
     try {
       const row = rows[i];
 
@@ -839,55 +843,90 @@ export async function smartRowBasedUpdate(rows) {
       if (sKey) existing = productMap.get("s_" + sKey) || productMap.get("s_" + sKey.replace(/^0+/, ""));
       if (!existing && nKey) existing = productMap.get("n_" + nKey);
 
-      // كبسولة البيانات المحدثة
-      const productData = {
-        name: name || (existing ? existing.name : ""),
-        sku: sku || (existing ? existing.sku : ""),
-        price: price > 0 ? price : (existing ? Number(existing.price || 0) : 0),
-        quantity: qty, 
-        unitMeasurement: unit, 
-        category: category !== "عام" ? category : (existing ? existing.category || "عام" : "عام"),
-        "prices.bag": price > 0 ? price : (existing ? Number((existing.prices && existing.prices.bag) || existing.price || 0) : 0),
-        status: qty > 0 ? "available" : "out_of_stock",
-        updatedAt: window.firestoreUtils.serverTimestamp(),
-      };
-
       if (existing) {
-        // فحص التغييرات لتوفير استهلاك الفايربيس (تحديث فقط عند وجود اختلاف)
-        const currentPrice = Number(existing.price || 0);
-        const currentQty = Number(existing.quantity || 0);
+        const updates = {};
+        let hasChanges = false;
 
-        const hasChanges = 
-          existing.name !== productData.name ||
-          existing.sku !== productData.sku ||
-          currentPrice !== productData.price ||
-          currentQty !== productData.quantity ||
-          existing.unitMeasurement !== productData.unitMeasurement ||
-          existing.category !== productData.category;
+        // مقارنة الاسم
+        if (name && normalizeArabic(name) !== normalizeArabic(existing.name || '')) {
+          updates.name = name;
+          hasChanges = true;
+        }
+
+        // مقارنة الكود (SKU)
+        if (sku && superClean(sku) !== superClean(existing.sku || '')) {
+          updates.sku = sku;
+          hasChanges = true;
+        }
+
+        // مقارنة السعر
+        if (price > 0 && price !== Number(existing.price || 0)) {
+          updates.price = price;
+          updates["prices.bag"] = price; // تحديث سعر الكيس أيضاً
+          hasChanges = true;
+        }
+
+        // مقارنة الكمية
+        if (qty !== Number(existing.quantity || 0)) {
+          updates.quantity = qty;
+          updates.status = qty > 0 ? "available" : "out_of_stock";
+          hasChanges = true;
+        }
+
+        // مقارنة الوحدة
+        if (unit && normalizeArabic(unit) !== normalizeArabic(existing.unitMeasurement || '')) {
+          updates.unitMeasurement = unit;
+          hasChanges = true;
+        }
+
+        // مقارنة القسم
+        if (category && normalizeArabic(category) !== normalizeArabic(existing.category || '')) {
+          const matchingCategory = window.categories.find(c => normalizeArabic(c.name) === normalizeArabic(category));
+          if (matchingCategory) {
+            updates.category = matchingCategory.name;
+            updates.categoryId = matchingCategory.id;
+            hasChanges = true;
+          } else {
+            // إذا كان القسم غير موجود، نحدث الاسم فقط ونمسح الـ categoryId
+            updates.category = category;
+            updates.categoryId = ''; 
+            hasChanges = true;
+          }
+        }
 
         if (hasChanges) {
+          updates.updatedAt = window.firestoreUtils.serverTimestamp();
           const docRef = window.firestoreUtils.doc(productsRef, existing.id || existing.originalId);
-          batch.update(docRef, productData);
+          batch.update(docRef, updates);
           updated++;
           opCount++;
-          // تحديث الكائن المحلي لمنع التكرار في نفس الجلسة
-          Object.assign(existing, { price: productData.price, quantity: productData.quantity, sku: productData.sku });
         } else {
           skipped++;
         }
       } else {
-        // إضافة صنف جديد بالكامل إذا لم يعثر عليه
+        // إضافة صنف جديد كلياً
         const newDocRef = window.firestoreUtils.doc(productsRef);
         batch.set(newDocRef, {
-          ...productData,
+          name: name,
+          sku: sku,
+          price: price,
+          quantity: qty,
+          unitMeasurement: unit,
+          category: category,
+          prices: { bag: price },
           availableUnits: { bag: true },
+          status: qty > 0 ? "available" : "out_of_stock",
           createdAt: window.firestoreUtils.serverTimestamp(),
+          updatedAt: window.firestoreUtils.serverTimestamp()
         });
         created++;
         opCount++;
       }
 
-      if (opCount >= BATCH_SIZE) await commitBatch();
+      // الالتزام بحجم الدفعة (400) لضمان عدم توقف المتصفح
+      if (opCount >= BATCH_SIZE || (i > 0 && i % BATCH_SIZE === 0)) {
+        await commitBatch();
+      }
     } catch (e) {
       console.error(`خطأ في الصف رقم ${i}:`, e);
     }
@@ -895,6 +934,8 @@ export async function smartRowBasedUpdate(rows) {
 
   await commitBatch();
   window.isBulkUploading = false;
+  window.updateProgress(progressId, rows.length, rows.length);
+  window.hideProgress(progressId);
 
   const msg = `تم معالجة الشيت: ${updated} تحديث | ${created} جديد | ${skipped} لم يتغير`;
   if (window.showToast) window.showToast(msg, "success", 8000);
