@@ -325,16 +325,18 @@ window.renderProducts = function (productsToRender = window.products) {
                 
                 <div class="bg-slate-50/60 p-1.5 sm:p-3 rounded-xl sm:rounded-[1.25rem] border border-slate-100 mb-2 shadow-sm">
                     <div class="flex items-center justify-between text-[7px] sm:text-[9px] mb-1.5 pb-1.5 border-b border-slate-200/40">
-                        <span class="flex items-center gap-1 font-mono text-slate-400"><i data-lucide="tag" class="w-2.5 h-2.5 opacity-50"></i> ${p.sku || "---"}</span>
+                        ${isAdmin ? `<span class="flex items-center gap-1 font-mono text-slate-400"><i data-lucide="tag" class="w-2.5 h-2.5 opacity-50"></i> ${p.sku || "---"}</span>` : `<span></span>`}
                         <span class="flex items-center gap-1 font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/30">${p.unitMeasurement || "متوفر"}</span>
                     </div>
                     <div class="product-price-wrapper min-h-[35px] sm:min-h-[45px] flex flex-col items-center justify-center gap-1">
                         ${priceBlock}
-                        <!-- إظهار رصيد المخزن بجانب السعر -->
+                        ${isAdmin ? `
+                        <!-- إظهار رصيد المخزن فقط للإدارة -->
                         <div class="flex items-center gap-1 text-[10px] font-black ${isOutOfStock ? 'text-red-500' : 'text-slate-500'}">
                             <i data-lucide="package-check" class="w-3 h-3 opacity-60"></i>
                             <span>المخزن: ${Number(p.quantity || 0)}</span>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
 

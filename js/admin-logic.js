@@ -617,6 +617,13 @@ export async function deleteCategory(id) {
   )
     return;
   try {
+    // إخفاء فوري محلي لتجنب مشاكل الكاش الخاص بالأنترنت
+    if (window.categories) {
+      window.categories = window.categories.filter(c => c.id !== id);
+      if (typeof window.renderAdminCategories === "function") window.renderAdminCategories();
+      if (typeof window.renderCategories === "function") window.renderCategories();
+    }
+    
     await window.firestoreUtils.deleteDoc(
       window.firestoreUtils.doc(
         window.db,
@@ -628,7 +635,7 @@ export async function deleteCategory(id) {
         id,
       ),
     );
-    window.showToast("تم حذف القسم", "success");
+    window.showToast("تم حذف القسم نهائياً", "success");
   } catch (e) {
     window.showToast("خطأ في الحذف", "error");
   }
@@ -822,15 +829,32 @@ export async function smartRowBasedUpdate(rows) {
     }
     
     try {
-      const row = rows[i];
+      // === الخطوة الأولى: تنظيف أسماء الأعمدة من المسافات الزائدة (مشكلة الشيت الأصلي) ===
+      const rawRow = rows[i];
+      const row = {};
+      Object.keys(rawRow).forEach(k => { row[k.trim()] = rawRow[k]; });
 
-      // الاستهداف المباشر لمسميات شيت أولاد الشيخ مع بدائل احتياطية
-      const sku = String(row["باركود"] || row["الكود"] || findValByParts(row, ["باركود", "كود", "sku"]) || "").trim();
-      const name = String(row["اسم الصنف"] || row["الصنف"] || findValByParts(row, ["اسم الصنف", "الصنف"]) || "").trim();
-      const qty = parseExcelNumber(row["رصيد المخزن"] || row["المخزن"] || findValByParts(row, ["رصيد المخزن", "رصيد", "مخزون"]));
-      const unit = String(row["الوحدة"] || row["الوحده"] || findValByParts(row, ["الوحدة", "الوحده"]) || "قطعة").trim();
-      const price = parseExcelNumber(row["السعر"] || row["سعر"] || findValByParts(row, ["السعر", "سعر"]));
-      const category = String(row["التصنيف"] || row["القسم"] || findValByParts(row, ["التصنيف", "القسم"]) || "عام").trim();
+      // استخراج البيانات بعد تنظيف المفاتيح
+      const sku = String(row["كودالصنف"] || row["باركود"] || row["الكود"] || findValByParts(row, ["كودالصنف", "باركود", "كود", "sku"]) || "").trim();
+      const name = String(row["الصنف"] || row["اسم الصنف"] || findValByParts(row, ["الصنف", "اسم الصنف"]) || "").trim();
+
+      // === استخراج اسم المخزن (نصي) ===
+      const warehouseName = String(row["مخزن"] || "").trim();
+
+      // === استخراج الكمية: يدعم مسميات متعددة بالضبط أو بمسافات (تم التنظيف أعلاه) ===
+      // الترتيب: أسماء الشيت الفعلي أولاً ثم البدائل الاحتياطية
+      let rawQty = row["رصيد المخزون"] ?? row["رصيد المخزن"] ?? row["الكميه"] ?? row["الكمية"];
+      if (rawQty === undefined || rawQty === null || rawQty === "") {
+        rawQty = findValByParts(row, ["رصيد المخزون", "رصيد المخزن", "الكميه", "الكمية", "رصيد"]);
+      }
+      const qty = parseExcelNumber(rawQty);
+
+      const categoryRaw = row["المجموعه"] || row["التصنيف"] || row["القسم"] || findValByParts(row, ["المجموعه", "التصنيف", "القسم"]);
+      const category = categoryRaw ? String(categoryRaw).trim() : null;
+      
+      const price = parseExcelNumber(row["سعر الجملة"] || row["السعر"] || row["سعر"] || findValByParts(row, ["سعر الجملة", "السعر", "سعر"]));
+      const unit = "قطعة";
+
 
       // تخطي الصفوف الفارغة تماماً
       if (!name && !sku) { skipped++; continue; }
@@ -844,54 +868,22 @@ export async function smartRowBasedUpdate(rows) {
       if (!existing && nKey) existing = productMap.get("n_" + nKey);
 
       if (existing) {
+        // === المنتج موجود بالفعل: نحدث السعر والكمية فقط إذا تغيرا ===
         const updates = {};
         let hasChanges = false;
 
-        // مقارنة الاسم
-        if (name && normalizeArabic(name) !== normalizeArabic(existing.name || '')) {
-          updates.name = name;
-          hasChanges = true;
-        }
-
-        // مقارنة الكود (SKU)
-        if (sku && superClean(sku) !== superClean(existing.sku || '')) {
-          updates.sku = sku;
-          hasChanges = true;
-        }
-
-        // مقارنة السعر
+        // مقارنة السعر فقط
         if (price > 0 && price !== Number(existing.price || 0)) {
           updates.price = price;
-          updates["prices.bag"] = price; // تحديث سعر الكيس أيضاً
+          updates["prices.bag"] = price;
           hasChanges = true;
         }
 
-        // مقارنة الكمية
+        // مقارنة الكمية فقط
         if (qty !== Number(existing.quantity || 0)) {
           updates.quantity = qty;
           updates.status = qty > 0 ? "available" : "out_of_stock";
           hasChanges = true;
-        }
-
-        // مقارنة الوحدة
-        if (unit && normalizeArabic(unit) !== normalizeArabic(existing.unitMeasurement || '')) {
-          updates.unitMeasurement = unit;
-          hasChanges = true;
-        }
-
-        // مقارنة القسم
-        if (category && normalizeArabic(category) !== normalizeArabic(existing.category || '')) {
-          const matchingCategory = window.categories.find(c => normalizeArabic(c.name) === normalizeArabic(category));
-          if (matchingCategory) {
-            updates.category = matchingCategory.name;
-            updates.categoryId = matchingCategory.id;
-            hasChanges = true;
-          } else {
-            // إذا كان القسم غير موجود، نحدث الاسم فقط ونمسح الـ categoryId
-            updates.category = category;
-            updates.categoryId = ''; 
-            hasChanges = true;
-          }
         }
 
         if (hasChanges) {
@@ -911,8 +903,9 @@ export async function smartRowBasedUpdate(rows) {
           sku: sku,
           price: price,
           quantity: qty,
-          unitMeasurement: unit,
-          category: category,
+          unitMeasurement: unit || "قطعة",
+          category: category || "عام",
+          warehouseName: warehouseName || "مخزن رئيسي",
           prices: { bag: price },
           availableUnits: { bag: true },
           status: qty > 0 ? "available" : "out_of_stock",
@@ -1206,7 +1199,10 @@ export function renderInventoryAudit() {
     <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
       <div class="p-5 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center gap-4">
         <h4 class="font-black text-slate-800 text-sm truncate">تقرير حالة المخزن</h4>
-        <button onclick="exportShortageReport()" class="text-[10px] bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold shadow-sm whitespace-nowrap">تصدير النواقص</button>
+        <div class="flex gap-2">
+          <button onclick="exportShortageReport()" class="text-[10px] bg-amber-500 text-white px-4 py-2 rounded-xl font-bold shadow-sm whitespace-nowrap">تصدير النواقص</button>
+          <button onclick="exportAdvancedBusinessReport()" class="text-[10px] bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold shadow-sm whitespace-nowrap hover:bg-emerald-700 transition-colors"><i data-lucide="bar-chart" class="inline w-3 h-3 mr-1"></i> تصدير التقرير الشامل للإدارة</button>
+        </div>
       </div>
       <div class="overflow-x-auto no-scrollbar">
         <table class="w-full text-right text-xs">
@@ -1371,6 +1367,106 @@ window.exportShortageReport = function () {
 
   const date = new Date().toLocaleDateString("ar-EG").replace(/\//g, "-");
   XLSX.writeFile(wb, `نواقص_أولاد_الشيخ_${date}.xlsx`);
+};
+
+// 4. التصدير الشامل المتقدم (Analytics Dashboard) - لا يستهلك أي قراءات إضافية
+window.exportAdvancedBusinessReport = function () {
+  const products = window.products || [];
+  const orders = window.allAdminOrders || [];
+
+  if (products.length === 0) {
+    return window.showToast("لا توجد بيانات متاحة للتصدير", "info");
+  }
+
+  // == المعالجة والتحليلات (Processing) ==
+  // 1. حساب قيمة المخزن الإجمالية
+  let totalInventoryValue = 0;
+  products.forEach(p => {
+    totalInventoryValue += (Number(p.quantity || 0) * Number(p.price || 0));
+  });
+
+  // 2. معالجة بيانات المبيعات والأصناف الأكثر مبيعاً
+  const productSalesMap = {}; // { sku: { name, soldQty, revenue } }
+  let totalSalesRevenue = 0;
+  let totalCompletedOrders = 0;
+
+  orders.forEach(order => {
+    // نحسب المبيعات من الطلبات المنتهية (تم التسليم) كمبيعات مؤكدة، والطلبات قيد المعالجة أيضاً لأغراض التتبع
+    if (order.status !== 'cancelled') {
+       totalCompletedOrders++;
+       totalSalesRevenue += Number(order.totalAmount || 0);
+
+       (order.items || []).forEach(item => {
+          let pId = item.productId || item.originalId;
+          const pData = products.find(p => p.id === pId) || { sku: item.sku || "بدون كود" };
+          let key = pData.sku || item.sku || String(pId);
+          
+          if (!productSalesMap[key]) {
+            productSalesMap[key] = { sku: key, name: item.productName || pData.name || "عنصر محذوف", soldQty: 0, revenue: 0 };
+          }
+          productSalesMap[key].soldQty += Number(item.orderedQuantity || 0);
+          productSalesMap[key].revenue += (Number(item.orderedQuantity || 0) * Number(item.basePrice || item.price || 0));
+       });
+    }
+  });
+
+  // == تجهيز الصفحات (Sheets Data Construction) ==
+
+  // الصفحة الأولى: ملخص الداش بورد (Dashboard)
+  const dashboardData = [
+    { "المؤشر": "إجمالي الإيرادات (طلبات غير ملغاة)", "القيمة": totalSalesRevenue.toFixed(2) + " ج.م" },
+    { "المؤشر": "إجمالي عدد الطلبات", "القيمة": totalCompletedOrders },
+    { "المؤشر": "مجموع العناصر في الكتالوج", "القيمة": products.length },
+    { "المؤشر": "القيمة التقديرية للبضاعة بالمخزن", "القيمة": totalInventoryValue.toFixed(2) + " ج.م" },
+    { "المؤشر": "تاريخ التقرير", "القيمة": new Date().toLocaleString('ar-EG') }
+  ];
+
+  // الصفحة الثانية: المنتجات الأعلى مبيعاً (Top Sellers)
+  let topSellersData = Object.values(productSalesMap);
+  topSellersData.sort((a, b) => b.soldQty - a.soldQty); // ترتيب تنازلي حسب الكمية
+  topSellersData = topSellersData.map(ts => ({
+    "كود الصنف": ts.sku,
+    "الصنف": ts.name,
+    "الكمية المباعة": ts.soldQty,
+    "إجمالي الإيراد (ج.م)": Number(ts.revenue).toFixed(2)
+  }));
+  if(topSellersData.length === 0) topSellersData.push({"ملاحظة": "لا توجد مبيعات مسجلة حتى الآن"});
+
+  // الصفحة الثالثة: المخزن الشامل (مخصص لنظام الحسابات كما طلب المالك)
+  const inventoryData = products.map((p) => ({
+    "كودالصنف": p.sku || "",
+    "الصنف": p.name || "",
+    "مخزن": p.warehouseName || "مخزن رئيسي", 
+    "المجموعه": p.category || "عام",
+    "رصيد المخزون": Number(p.quantity || 0),
+    "سعر الجملة": Number(p.price || 0)
+  }));
+
+  // الصفحة الرابعة: تقرير النواقص
+  const shortageData = products
+    .filter((p) => Number(p.quantity || 0) <= Number(p.minThreshold || 5))
+    .map((p) => ({
+      "كود الصنف": p.sku || "",
+      "الصنف": p.name || "",
+      "الرصيد الحالي": Number(p.quantity || 0),
+      "حد الطلب الأدنى": Number(p.minThreshold || 5),
+      "الحالة": Number(p.quantity || 0) <= 0 ? "نفذ تماماً ⚠️" : "كمية حرجة 🟠"
+    }));
+  if(shortageData.length === 0) shortageData.push({"ملاحظة": "المخازن ممتلئة ولا توجد نواقص"});
+
+  // == إنشاء ورك بوك متكامل وحفظ الإكسل ==
+  const wb = XLSX.utils.book_new();
+
+  // إدراج الشيتات بالترتيب
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dashboardData), "اللوحة المالية");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(topSellersData), "الأعلى مبيعاً");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventoryData), "المخزن الشامل");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(shortageData), "تقرير النواقص");
+
+  // تصدير الملف
+  const date = new Date().toLocaleDateString("ar-EG").replace(/\//g, "-");
+  XLSX.writeFile(wb, `تقرير_أولاد_الشيخ_المتقدم_${date}.xlsx`);
+  window.showToast("تم تحضير وتنزيل التقرير الشامل!", "success", 4000);
 };
 
 window.updateProductQty = async (id) => {

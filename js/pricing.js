@@ -142,6 +142,7 @@ window.getPricingFieldsHTML = function (product) {
   const sku       = product ? (product.sku || '') : '';
   const qty       = product ? (product.quantity || 0) : 0;
   const min       = product ? (product.minThreshold || 5) : 5;
+  const maxPerUser = product ? (product.maxPerUser || 0) : 0;
 
   return `
     <div class="grid grid-cols-1 gap-3 mb-3">
@@ -159,6 +160,12 @@ window.getPricingFieldsHTML = function (product) {
       <div>
         <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">حد الطلب (تنبيه نقص)</label>
         <input type="number" id="p-min" value="${min}" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-red-400 font-semibold" />
+      </div>
+    </div>
+    <div class="grid grid-cols-1 gap-3 mb-3">
+      <div>
+        <label class="text-[11px] font-bold text-slate-500 mb-1.5 block text-blue-600">الحد الأقصى للعميل في اليوم (0 = ليميت مفتوح)</label>
+        <input type="number" id="p-max-per-user" value="${maxPerUser}" class="w-full p-4 bg-blue-50/50 rounded-2xl outline-none border border-transparent focus:border-blue-400 font-bold" placeholder="أدخل الكمية المسموحة كحد أقصى..." />
       </div>
     </div>
 
@@ -212,6 +219,7 @@ window.getPricingValues = function () {
   const sku       = document.getElementById('p-sku')?.value || '';
   const quantity  = Number(document.getElementById('p-qty')?.value || 0);
   const minThreshold = Number(document.getElementById('p-min')?.value || 5);
+  const maxPerUser = Number(document.getElementById('p-max-per-user')?.value || 0);
   
   // دالة ذكية لجلب السعر الرئيسي للمنتج (كيس أولاً ثم أي وحدة أخرى)
   const mainPrice = window.cleanNumber(prices.bag || Object.values(prices).find(v => v > 0) || 0);
@@ -227,6 +235,7 @@ window.getPricingValues = function () {
     sku,
     quantity,
     minThreshold,
+    maxPerUser,
     status: quantity > 0 ? 'available' : 'out_of_stock'
   };
 };

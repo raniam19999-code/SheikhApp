@@ -56,17 +56,26 @@ export async function addToCart(id, name, price, unit) {
 
       const querySnapshot = await window.firestoreUtils.getDocs(q);
       
-      // فحص إذا كان أي طلب يحتوي على هذا المنتج
-      let alreadyOrderedToday = false;
+      // فحص الكميات التي تم طلبها اليوم من هذا المنتج
+      let totalOrderedToday = 0;
       querySnapshot.forEach(doc => {
         const orderData = doc.data();
-        if (orderData.items && orderData.items.some(item => item.productId === id)) {
-          alreadyOrderedToday = true;
+        if (orderData.items) {
+          orderData.items.forEach(item => {
+            if (item.productId === id || item.originalId === id) {
+              totalOrderedToday += (item.orderedQuantity || 0);
+            }
+          });
         }
       });
 
-      if (alreadyOrderedToday) {
-        return window.showToast(`🔒 عذراً يا صديقي، لقد طلبت هذا المنتج اليوم. يمكنك طلبه مرة أخرى غداً.`, "info");
+      const limit = Number(product.maxPerUser || 0);
+      // حساب ما يوجد في السلة حالياً لنفس المنتج
+      const inCartQty = window.userFirestoreCart.reduce((sum, item) => (item.productId === id || item.originalId === id) ? sum + (item.orderedQuantity || 0) : sum, 0);
+      const totalRequested = totalOrderedToday + inCartQty + qty;
+
+      if (limit > 0 && totalRequested > limit) {
+        return window.showToast(`🔒 قد نفذت الكمية المتاحة لك من هذا المنتج لليوم بناء على إيميلك. الحد الأقصى لك هو (${limit}). لا يحق لك الطلب إلا غداً!`, "error", 6000);
       }
 
       // 3. المتابعة للإضافة إذا لم يسبق طلبه
@@ -146,11 +155,32 @@ export function renderCart() {
 }
 
 export async function removeFromCart(id) {
-  if (window.currentUser && !window.currentUser.isAnonymous) {
-    await window.firestoreUtils.deleteDoc(window.firestoreUtils.doc(window.db, "artifacts", window.appId, "users", window.currentUser.uid, "cartItems", id));
-  } else { window.cart = window.cart.filter(x => x.id !== id); }
-  renderCart();
-  updateCartBadge();
+  if (!id || id === 'undefined') {
+    return window.showToast("خطأ: معرف غير صالح", "error");
+  }
+
+  try {
+    const targetId = String(id);
+    if (window.currentUser && !window.currentUser.isAnonymous) {
+      // حذف فوري محلي لتجنب مشاكل المزامنة وتأخير Firebase
+      if (window.userFirestoreCart) {
+        window.userFirestoreCart = window.userFirestoreCart.filter(x => String(x.id) !== targetId);
+      }
+      
+      const docR = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "users", window.currentUser.uid, "cartItems", targetId);
+      await window.firestoreUtils.deleteDoc(docR);
+    } else { 
+      if (window.cart) {
+        window.cart = window.cart.filter(x => String(x.id) !== targetId); 
+      }
+    }
+  } catch(e) {
+    console.error("Error removing from cart:", e);
+  }
+
+  // إعادة التصيير وتحديث العداد
+  if (typeof window.renderCart === 'function') window.renderCart();
+  if (typeof window.updateCartBadge === 'function') window.updateCartBadge();
 }
 
 export async function clearCart() {
