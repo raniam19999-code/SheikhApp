@@ -158,6 +158,7 @@ console.log("chatbot.js loaded.");
 
 const HODA_BOT_IMAGE = "img/CALLB.png"; // هدى (صورة البنت)
 const YOUSSEF_BOT_IMAGE = "img/download (1).png"; // يوسف (صورة الولد)
+const CHAT_HISTORY_KEY = "sheikh_chat_history";
 
 // دالة تحديد الشخصية (هدى أو يوسف)
 window.getBotPersona = function () {
@@ -165,17 +166,23 @@ window.getBotPersona = function () {
     window.currentUser && window.currentUser.gender
       ? window.currentUser.gender.toLowerCase()
       : "male";
+
+  // جلب اسم المستخدم إذا كان مسجلاً دخول، وإلا نستخدم مناداة عامة
+  const userName = (window.currentUser && !window.currentUser.isAnonymous) 
+    ? (window.currentUser.displayName || window.currentUser.name || "عزيزي") 
+    : "عزيزي";
+
   if (userGender === "male") {
     return {
       name: "يوسف",
-      greeting: "أهلاً بك، أنا يوسف مساعدك الشخصي. كيف يمكنني خدمتك اليوم؟",
+      greeting: `أهلاً بك يا ${userName}، أنا يوسف مساعدك الشخصي. كيف يمكنني خدمتك اليوم؟`,
       image: YOUSSEF_BOT_IMAGE,
     };
   } else {
     return {
       name: "هدى",
       greeting:
-        "أهلاً بكِ، أنا هدى مساعدتكِ الشخصية. كيف يمكنني مساعدتكِ الجميلة اليوم؟",
+        `أهلاً بكِ يا ${userName}، أنا هدى مساعدتكِ الشخصية. كيف يمكنني مساعدتكِ الجميلة اليوم؟`,
       image: HODA_BOT_IMAGE,
     };
   }
@@ -190,11 +197,20 @@ window.toggleChatbot = function () {
   chatbotOpen = !chatbotOpen;
 
   if (chatbotOpen) {
+    const persona = window.getBotPersona();
+    
+    // تحديث الاسم والصورة في واجهة الشات عند الفتح
+    const nameElem = document.getElementById("chatbot-name");
+    const avatarElem = document.getElementById("chatbot-avatar");
+    
+    if (nameElem) nameElem.innerText = persona.name;
+    if (avatarElem) avatarElem.innerHTML = `<img src="${persona.image}" class="w-full h-full object-cover">`;
+
     container.classList.remove("hidden");
     container.style.animation = "fadeInUp 0.3s ease-out";
-    const persona = window.getBotPersona();
+    
     if (document.getElementById("chatbot-messages").childElementCount === 0) {
-      appendMessage(persona.name, persona.greeting, "bot");
+      window.loadChatHistory();
     }
   } else {
     container.classList.add("hidden");
@@ -244,42 +260,65 @@ function getSmartResponse(msg) {
   const categories = window.categories || [];
   const contactNumbers = "01033743734 أو 01063748966";
 
+  const normMsg = window.normalizeArabic(msg);
+
   // 1. الترحيب
   if (
-    msg.includes("سلام") ||
-    msg.includes("هلا") ||
-    msg.includes("مرحبا") ||
-    msg.includes("اهلا") ||
-    msg.includes("صباح") ||
-    msg.includes("مساء")
+    normMsg.includes("سلام") ||
+    normMsg.includes("هلا") ||
+    normMsg.includes("مرحبا") ||
+    normMsg.includes("اهلا") ||
+    normMsg.includes("صباح") ||
+    normMsg.includes("مساء")
   ) {
     return "أهلاً بك في مدينة أولاد الشيخ! 😊 أنا هنا لمساعدتك في الحصول على أفضل أسعار الجملة. هل تبحث عن منتج معين أم تود تصفح الأقسام؟";
   }
 
   // 2. البحث عن منتجات (بالاسم)
-  const matchedProduct = products.find((p) =>
-    msg.includes(p.name.toLowerCase()),
-  );
+  const matchedProduct = products.find((p) => {
+    const pName = window.normalizeArabic(p.name);
+    return normMsg.includes(pName) || pName.includes(normMsg);
+  });
   if (matchedProduct) {
-    return `بخصوص "${matchedProduct.name}"، هو متوفر حالياً بسعر ${matchedProduct.price} ج.م للـ ${matchedProduct.unit || "كيس"}. هل تود إضافته للسلة الآن؟ 🛒`;
+    const price = matchedProduct.price || (matchedProduct.prices && matchedProduct.prices.bag) || 0;
+    const unit = matchedProduct.unitMeasurement || matchedProduct.unit || "كيس";
+    const text = `بخصوص "${matchedProduct.name}"، هو متوفر حالياً بسعر ${Number(price).toFixed(2)} ج.م للـ ${unit}. هل تود إضافته للسلة الآن؟ 🛒`;
+    
+    if (matchedProduct.img) {
+      return `
+        <div class="flex flex-col gap-2">
+          <img src="${matchedProduct.img}" class="w-full h-32 object-contain rounded-xl bg-white border border-slate-100 shadow-sm">
+          <p>${text}</p>
+        </div>`;
+    }
+    return text;
   }
 
   // 3. البحث عن الأقسام
-  const matchedCategory = categories.find((c) =>
-    msg.includes(c.name.toLowerCase()),
-  );
+  const matchedCategory = categories.find((c) => {
+    const cName = window.normalizeArabic(c.name);
+    return normMsg.includes(cName) || cName.includes(normMsg);
+  });
   if (matchedCategory) {
     const subProducts = products
       .filter((p) => p.category === matchedCategory.name)
       .slice(0, 3);
-    let resp = `قسم "${matchedCategory.name}" متميز جداً لدينا! ✨\n`;
+    let resp = `قسم "${matchedCategory.name}" متميز جداً لدينا! ✨<br>`;
     if (subProducts.length > 0) {
       resp +=
         "من أشهر منتجاتنا فيه: " +
         subProducts.map((p) => p.name).join(" و ") +
         ".";
     }
-    return resp + " يمكنك الضغط على القسم في الأعلى لمشاهدة كافة الأصناف.";
+    const finalMsg = resp + "<br>يمكنك الضغط على القسم في الأعلى لمشاهدة كافة الأصناف.";
+    if (matchedCategory.img) {
+      return `
+        <div class="flex flex-col gap-2">
+          <img src="${matchedCategory.img}" class="w-full h-28 object-cover rounded-xl bg-white border border-slate-100 shadow-sm">
+          <p>${finalMsg}</p>
+        </div>`;
+    }
+    return finalMsg;
   }
 
   // 4. الشحن والتوصيل
@@ -329,9 +368,11 @@ function getSmartResponse(msg) {
 }
 
 // دالة عرض الرسائل بتصميم "فقاعات" عصري
-function appendMessage(sender, text, type) {
+function appendMessage(sender, text, type, shouldSave = true) {
   const chatMessages = document.getElementById("chatbot-messages");
   if (!chatMessages) return;
+
+  if (shouldSave) saveMessageToHistory(sender, text, type);
 
   const msgDiv = document.createElement("div");
   msgDiv.className = `flex ${type === "user" ? "justify-end" : "justify-start"} mb-3 items-end`;
@@ -354,6 +395,25 @@ function appendMessage(sender, text, type) {
   chatMessages.appendChild(msgDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+// وظائف حفظ واستعادة سجل المحادثة
+function saveMessageToHistory(sender, text, type) {
+  const history = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "[]");
+  history.push({ sender, text, type });
+  // الاحتفاظ بآخر 50 رسالة فقط لتجنب امتلاء التخزين
+  if (history.length > 50) history.shift();
+  localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history));
+}
+
+window.loadChatHistory = function() {
+  const history = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "[]");
+  if (history.length === 0) {
+    const persona = window.getBotPersona();
+    appendMessage(persona.name, persona.greeting, "bot");
+  } else {
+    history.forEach(msg => appendMessage(msg.sender, msg.text, msg.type, false));
+  }
+};
 
 // وظائف مساعدة للشكل الجمالي
 function showTyping() {

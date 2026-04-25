@@ -644,7 +644,7 @@ window.deleteCategory = deleteCategory;
 
 // 0. التبديل بين التبويبات الفرعية في لوحة التحكم
 export function showAdminSubTab(tab) {
-  const tabs = ["p", "c", "o", "i", "bot", "import"];
+  const tabs = ["p", "c", "o", "i", "promo", "import"];
   tabs.forEach((t) => {
     const btn = document.getElementById(`admin-tab-${t}`);
     const list = document.getElementById(`admin-${t}-list`);
@@ -662,6 +662,7 @@ export function showAdminSubTab(tab) {
 
   if (tab === "i") renderInventoryAudit();
   if (tab === "import") renderAdminImportTools();
+  if (tab === "promo") renderAdminPromoTools();
   if (tab === "p" && typeof renderAdminProducts === "function")
     renderAdminProducts();
   if (tab === "c" && typeof renderAdminCategories === "function")
@@ -709,6 +710,126 @@ export function renderAdminImportTools() {
     `;
   if (window.lucide) lucide.createIcons();
 }
+
+/**
+ * إدارة الفيديوهات الترويجية (Promo Videos)
+ */
+export function renderAdminPromoTools() {
+    const list = document.getElementById("admin-promo-list");
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm animate-fade-in space-y-6">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shadow-inner">
+                    <i data-lucide="play-circle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-black text-slate-800 text-lg">إدارة الفيديوهات الترويجية</h3>
+                    <p class="text-[10px] text-slate-500 font-semibold text-right">تظهر الفيديوهات في الموقع والتطبيق فوراً</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <input type="text" id="promo-title" placeholder="عنوان الإعلان (مثال: عروض عيد الأضحى)" class="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm">
+                <div class="relative">
+                    <input type="text" id="promo-url" placeholder="ضع رابط (YouTube, TikTok, Facebook, Instagram)" class="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm pr-12" dir="ltr">
+                    <i data-lucide="link" class="absolute right-4 top-4 w-5 h-5 text-slate-300"></i>
+                </div>
+                <button onclick="savePromoVideo()" class="w-full py-4 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
+                    <i data-lucide="share-2" class="w-4 h-4"></i> نشر الإعلان الآن
+                </button>
+            </div>
+
+            <div id="promos-display-list" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-50 pt-6">
+                <!-- يتم رندرة قائمة الفيديوهات المضافة هنا -->
+            </div>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    if (window.promosAdminUnsub) window.promosAdminUnsub();
+    window.promosAdminUnsub = renderPromosAdminList();
+}
+
+function getEmbedUrl(url) {
+    if (!url) return "";
+    try {
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            let id = "";
+            if (url.includes('v=')) { id = url.split('v=')[1].split('&')[0]; }
+            else if (url.includes('shorts/')) { id = url.split('shorts/')[1].split('?')[0]; }
+            else { id = url.split('/').pop().split('?')[0]; }
+            return `https://www.youtube.com/embed/${id}`;
+        } else if (url.includes('tiktok.com')) {
+            const idMatch = url.match(/\/video\/(\d+)/);
+            const id = idMatch ? idMatch[1] : url.split('/').pop().split('?')[0];
+            return `https://www.tiktok.com/embed/v2/${id}`;
+        } else if (url.includes('facebook.com')) {
+            return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}`;
+        } else if (url.includes('instagram.com')) {
+            const baseUrl = url.split('?')[0];
+            return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}embed`;
+        }
+    } catch (e) { console.error("URL Parse error", e); }
+    return url;
+}
+
+window.savePromoVideo = async function() {
+    const url = document.getElementById('promo-url').value.trim();
+    const title = document.getElementById('promo-title').value.trim();
+    
+    if (!url) return window.showToast("يرجى إدخال الرابط", "warning");
+
+    const promoData = {
+        title: title || "عرض جديد",
+        originalUrl: url,
+        embedUrl: getEmbedUrl(url),
+        createdAt: window.firestoreUtils.serverTimestamp()
+    };
+
+    try {
+        const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+        await window.firestoreUtils.addDoc(ref, promoData);
+        window.showToast("تم نشر الإعلان بنجاح", "success");
+        document.getElementById('promo-url').value = '';
+        document.getElementById('promo-title').value = '';
+    } catch (e) {
+        window.showToast("خطأ في الحفظ", "error");
+    }
+};
+
+function renderPromosAdminList() {
+    const displayList = document.getElementById("promos-display-list");
+    if (!displayList) return null;
+
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const promos = snap.docs.map(doc => ({id: doc.id, ...doc.data()}));
+        if (promos.length === 0) {
+            displayList.innerHTML = `<p class="col-span-full text-center text-slate-400 font-bold py-4">لا توجد فيديوهات مضافة</p>`;
+            return;
+        }
+        displayList.innerHTML = promos.map(p => `
+            <div class="relative rounded-3xl overflow-hidden border border-slate-100 shadow-sm group">
+                <iframe src="${p.embedUrl}" class="w-full aspect-video" frameborder="0" allowfullscreen></iframe>
+                <div class="p-3 bg-white flex justify-between items-center">
+                    <span class="text-xs font-black text-slate-700 truncate">${p.title}</span>
+                    <button onclick="deletePromoVideo('${p.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        `).join("");
+        if (window.lucide) lucide.createIcons();
+    });
+}
+
+window.deletePromoVideo = async function(id) {
+    if (!confirm("حذف الفيديو؟")) return;
+    const docRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "promotions", id);
+    await window.firestoreUtils.deleteDoc(docRef);
+    window.showToast("تم الحذف", "info");
+};
 
 // 1. استيراد ومعالجة ملف الإكسل (Bulk Upload)
 export async function handleBulkFileUpload(event) {
@@ -1225,7 +1346,8 @@ export function renderInventoryAudit() {
         <td class="p-4 text-center font-black text-slate-700">${qty}</td>
         <td class="p-4">
           <div class="flex items-center justify-end gap-2">
-            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-14 p-2 border border-slate-200 rounded-lg text-center font-bold text-xs focus:border-emerald-500 outline-none">
+            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-64 p-6 border-4 border-slate-400 rounded-[2.5rem] text-center font-black text-3xl focus:border-emerald-600 focus:ring-[12px] focus:ring-emerald-100 outline-none transition-all shadow-2xl bg-white text-slate-900">
+            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-32 p-2.5 border-2 border-slate-300 rounded-xl text-center font-black text-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all bg-white text-slate-900">
             <button onclick="updateProductQty('${p.id}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
               <i data-lucide="check" class="w-4 h-4"></i>
             </button>

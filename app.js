@@ -470,6 +470,7 @@ async function startApp() {
   // بدء جلب البيانات ومراقبة حالة المستخدم فوراً
   listenToCategories();
   listenToProducts();
+  if (!window.unsubs.promos) window.unsubs.promos = listenToPromotions();
   Auth.initAuth();
   Auth.listenToAuth();
 
@@ -549,6 +550,56 @@ function listenToProducts() {
     )
       Orders.listenToOrders();
   });
+}
+
+let promoAutoScrollInterval;
+
+function listenToPromotions() {
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const promos = snap.docs.map(doc => doc.data());
+        const container = document.getElementById("promos-client-container");
+        if (!container) return;
+        
+        if (promos.length === 0) {
+            container.classList.add("hidden");
+            return;
+        }
+        
+        container.classList.remove("hidden");
+        container.innerHTML = promos.map(p => `
+            <div class="min-w-[90vw] sm:min-w-[100%] h-[250px] sm:h-[450px] rounded-[2.5rem] sm:rounded-[3.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] bg-black relative group border border-white/10 snap-center transition-transform duration-500">
+                <iframe src="${p.embedUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-10 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none">
+                    <p class="text-white text-base sm:text-2xl font-black drop-shadow-2xl translate-y-2 group-hover:translate-y-0 transition-transform duration-300">${p.title}</p>
+                </div>
+            </div>
+        `).join("");
+
+        // تفعيل ميزة التمرير التلقائي
+        startPromoAutoCycle(container);
+    });
+}
+
+function startPromoAutoCycle(container) {
+    if (promoAutoScrollInterval) clearInterval(promoAutoScrollInterval);
+    
+    promoAutoScrollInterval = setInterval(() => {
+        const scrollAmount = container.offsetWidth;
+        const isAtEnd = container.scrollLeft + container.offsetWidth >= container.scrollWidth - 20;
+
+        if (isAtEnd) {
+            container.scrollTo({
+                left: 0,
+                behavior: 'smooth'
+            });
+        } else {
+            container.scrollBy({
+                left: scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+    }, 5000); // تغيير الإعلان كل 5 ثوانٍ
 }
 
 function listenToCategories() {

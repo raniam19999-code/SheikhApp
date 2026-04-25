@@ -2,6 +2,16 @@
    ui-utils.js: التنبيهات، التبويبات، والوظائف العامة
 ======================================================== */
 
+// تعريف صوت التنبيه "Pop" الخفيف
+const notificationSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3");
+
+window.playNotificationSound = function() {
+  try {
+    notificationSound.currentTime = 0;
+    notificationSound.play().catch(e => console.warn("Sound blocked by browser until user interaction"));
+  } catch (e) {}
+};
+
 // دالة أمان لتشغيل الأيقونات للتأكد من وجود المكتبة
 function safeCreateIcons() {
   try {
@@ -120,6 +130,8 @@ export function createNotification(
   };
   window.notifications.unshift(notification);
   if (window.notifications.length > 10) window.notifications.pop();
+  
+  if (window.playNotificationSound) window.playNotificationSound();
   updateNotificationPanel();
   updateNotificationBadge();
 }
@@ -133,11 +145,12 @@ export function updateNotificationPanel() {
     list.innerHTML = window.notifications
       .map(
         (n) => `
-      <div class="px-6 py-4 hover:bg-emerald-50/50 transition-colors cursor-pointer group ${n.read ? "opacity-60" : "bg-emerald-50/20"}">
-        <div class="flex items-start gap-3">
+      <div class="px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer group ${n.read ? "opacity-60" : "bg-emerald-50/30"}">
+        <div class="flex items-start gap-4">
+          ${!n.read ? '<div class="w-2.5 h-2.5 bg-red-500 rounded-full mt-1.5 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse"></div>' : '<div class="w-2.5 h-2.5 shrink-0 mt-1.5"></div>'}
           <div class="min-w-0 flex-1">
-            <p class="font-bold text-slate-800 text-sm">${n.title}</p>
-            <p class="text-xs text-slate-600 mt-0.5">${n.message}</p>
+            <p class="font-black text-slate-800 text-sm">${n.title}</p>
+            <p class="text-xs text-slate-500 mt-1 font-semibold leading-relaxed">${n.message}</p>
           </div>
         </div>
         ${n.actionText ? `<button onclick="handleNotificationAction(${n.id})" class="mt-2 w-full text-xs font-bold py-2 rounded-lg bg-[#1B4332] text-white">${n.actionText}</button>` : ""}
@@ -155,12 +168,21 @@ export function updateNotificationBadge() {
   badge.innerText = unread > 9 ? "+9" : unread;
 }
 
-export function toggleNotificationPanel() {
+export function toggleNotificationPanel(event) {
+  if (event) event.stopPropagation();
   const panel = document.getElementById("notification-panel");
-  panel.classList.toggle("hidden");
-  if (!panel.classList.contains("hidden")) {
-    window.notifications.forEach((n) => (n.read = true));
+  if (!panel) return;
+
+  const isHidden = panel.classList.contains("hidden");
+  
+  if (isHidden) {
+    panel.classList.remove("hidden");
+    updateNotificationPanel(); // تم نقل هذه الدالة لضمان أن النافذة تفتح أولاً ثم يتم تحديث محتواها
+    safeCreateIcons();
+  } else {
+    if (window.notifications) window.notifications.forEach(n => n.read = true);
     updateNotificationBadge();
+    panel.classList.add("hidden");
   }
 }
 

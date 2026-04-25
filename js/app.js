@@ -134,9 +134,10 @@ async function startApp() {
     }
   }, 500);
 
-  if (!window.unsubs.categories)
-    window.unsubs.categories = listenToCategories();
+  if (!window.unsubs.categories) window.unsubs.categories = listenToCategories();
   if (!window.unsubs.products) window.unsubs.products = listenToProducts();
+  if (!window.unsubs.promos) window.unsubs.promos = listenToPromotions();
+
   Auth.listenToAuth();
 }
 
@@ -210,6 +211,29 @@ function listenToCategories() {
   });
 }
 
+function listenToPromotions() {
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const promos = snap.docs.map(doc => doc.data());
+        const container = document.getElementById("promos-client-container");
+        if (!container) return;
+        
+        if (promos.length === 0) {
+            container.classList.add("hidden");
+            return;
+        }
+        
+        container.classList.remove("hidden");
+        container.innerHTML = promos.map(p => `
+            <div class="min-w-[280px] sm:min-w-[400px] rounded-[2.5rem] overflow-hidden shadow-xl bg-black aspect-video relative group">
+                <iframe src="${p.embedUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
+                    <p class="text-white text-xs sm:text-sm font-black drop-shadow-lg">${p.title}</p>
+                </div>
+            </div>
+        `).join("");
+    });
+}
 function searchProducts(term) {
   if (!term) return window.renderProducts(window.products);
   const filtered = window.products.filter(
