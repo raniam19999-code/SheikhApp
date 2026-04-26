@@ -145,6 +145,7 @@ export function openProductModal(product = null) {
   document.getElementById("p-quantities").value = product
     ? product.availableQuantities || ""
     : "";
+  document.getElementById("p-desc").value = product ? product.description || "" : "";
   document.getElementById("p-img-url").value = "";
   document.getElementById("p-img-base64").value = product
     ? product.img || ""
@@ -163,6 +164,16 @@ export function openProductModal(product = null) {
 
   document.getElementById("product-modal").classList.remove("hidden");
   document.getElementById("product-modal").classList.add("flex");
+
+  // تطبيق قيود إضافية برمجية فور فتح المودال
+  if (window.currentUserRole === 'editor') {
+      const fieldsToLock = ['p-cat', 'p-sku', 'p-qty', 'p-min', 'p-unit'];
+      fieldsToLock.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = true;
+      });
+  }
+  if (window.applyUIPermissions) window.applyUIPermissions();
 }
 window.openProductModal = openProductModal;
 
@@ -172,6 +183,7 @@ export async function saveProduct() {
   const unit = document.getElementById("p-unit").value;
   const quantities = document.getElementById("p-quantities").value;
   const img = document.getElementById("p-img-base64").value;
+  const description = document.getElementById("p-desc").value.trim();
 
   if (!name || !categoryId)
     return window.showToast("يرجى إدخال الاسم والقسم", "warning");
@@ -188,10 +200,19 @@ export async function saveProduct() {
     category: categoryObj ? categoryObj.name : "عام",
     unitMeasurement: unit, // تم التوحيد مع نظام جلب البيانات
     availableQuantities: quantities,
+    description,
     img: img || document.getElementById("p-img-url").value, // استخدام الرابط المباشر إذا لم تكتمل عملية المعالجة
     ...pricing,
     updatedAt: window.firestoreUtils.serverTimestamp(),
   };
+  
+  // إذا لم يكن سوبر أدمن، يتم وسم المنتج للمراجعة وإخفاؤه عن الزبائن مؤقتاً
+  if (window.currentUserRole !== 'admin') {
+    data.isApproved = false;
+    data.status = 'pending_review';
+  } else {
+    data.isApproved = true;
+  }
 
   const productsRef = window.firestoreUtils.collection(
     window.db,
@@ -208,10 +229,42 @@ export async function saveProduct() {
         window.firestoreUtils.doc(productsRef, window.editingId),
         data,
       );
-      window.showToast("تم تحديث المنتج", "success");
+      const msg = window.currentUserRole === 'admin' ? "تم تحديث المنتج" : "تم إرسال التعديل للمراجعة";
+      window.showToast(msg, "success");
+
+      // إرسال إشعار للمراجعين إذا كان القائم بالعمل موظفاً
+      if (window.currentUserRole !== 'admin') {
+        await window.firestoreUtils.addDoc(
+          window.firestoreUtils.collection(window.db, "artifacts", window.appId, "notifications"),
+          {
+            title: "تعديل بانتظار المراجعة",
+            message: `قام الموظف بتعديل المنتج: ${name}`,
+            type: 'warning',
+            icon: 'clock',
+            targetTab: 'review',
+            createdAt: window.firestoreUtils.serverTimestamp()
+          }
+        );
+      }
     } else {
       await window.firestoreUtils.addDoc(productsRef, data);
-      window.showToast("تم إضافة المنتج بنجاح", "success");
+      const msg = window.currentUserRole === 'admin' ? "تم إضافة المنتج بنجاح" : "تم إضافة المنتج بنجاح وينتظر مراجعة المدير";
+      window.showToast(msg, "success");
+
+      // إرسال إشعار للمراجعين عند إضافة منتج جديد
+      if (window.currentUserRole !== 'admin') {
+        await window.firestoreUtils.addDoc(
+          window.firestoreUtils.collection(window.db, "artifacts", window.appId, "notifications"),
+          {
+            title: "منتج جديد للمراجعة 🆕",
+            message: `تم إضافة منتج جديد بانتظار الاعتماد: ${name}`,
+            type: 'warning',
+            icon: 'package',
+            targetTab: 'review',
+            createdAt: window.firestoreUtils.serverTimestamp()
+          }
+        );
+      }
     }
     closeModals();
   } catch (e) {
@@ -383,6 +436,9 @@ export function renderAdminProducts(productsToRender = window.products) {
     ${html}
   `;
   if (window.lucide) lucide.createIcons();
+  
+  // تأكيد تطبيق الصلاحيات (مثل إخفاء أزرار الحذف) بعد كل عملية رندرة
+  if (typeof window.applyUIPermissions === "function") window.applyUIPermissions();
 }
 window.renderAdminProducts = renderAdminProducts;
 
@@ -482,6 +538,7 @@ export function renderAdminCategories() {
 }
 
 export async function deleteProduct(id) {
+  if (!window.canDelete()) return window.showToast("عذراً، لا تملك صلاحية الحذف", "error");
   if (!confirm("هل أنت متأكد من حذف هذا المنتج؟")) return;
   try {
     await window.firestoreUtils.deleteDoc(
@@ -644,7 +701,15 @@ window.deleteCategory = deleteCategory;
 
 // 0. التبديل بين التبويبات الفرعية في لوحة التحكم
 export function showAdminSubTab(tab) {
-  const tabs = ["p", "c", "o", "i", "promo", "import"];
+  // منع الدخول للتبويبات غير المصرح بها
+  if (window.currentUserRole !== 'admin') {
+      const roleTabs = {
+          importer: ['import'], editor: ['p', 'banners'], inventory: ['i'], creator: ['p'], reviewer: ['p', 'review']
+      };
+      if (!roleTabs[window.currentUserRole] || !roleTabs[window.currentUserRole].includes(tab)) return;
+  }
+
+  const tabs = ["p", "c", "o", "i", "promo", "import", "bot", "review", "staff"];
   tabs.forEach((t) => {
     const btn = document.getElementById(`admin-tab-${t}`);
     const list = document.getElementById(`admin-${t}-list`);
@@ -665,14 +730,135 @@ export function showAdminSubTab(tab) {
   if (tab === "promo") renderAdminPromoTools();
   if (tab === "p" && typeof renderAdminProducts === "function")
     renderAdminProducts();
+  if (tab === "review") renderAdminReviewQueue();
+  if (tab === "staff") renderStaffManagement();
+
   if (tab === "c" && typeof renderAdminCategories === "function")
     renderAdminCategories();
-  if (tab === "bot" && typeof window.renderBotResponses === "function")
-    window.renderBotResponses();
+  if (tab === "bot") {
+    // إذا كانت حاوية البوت فارغة، نقوم ببناء الواجهة الأساسية لها
+    const botList = document.getElementById("admin-bot-list");
+    if (botList && botList.innerHTML.trim() === "") {
+        if (typeof window.renderAdminBotUI === "function") window.renderAdminBotUI();
+    }
+    if (typeof window.renderBotResponses === "function") {
+        window.renderBotResponses();
+    }
+  }
 
   if (window.lucide) lucide.createIcons();
+  // إعادة التأكد من الصلاحيات بعد الرندرة
+  if (window.applyUIPermissions) window.applyUIPermissions();
 }
 window.showAdminSubTab = showAdminSubTab;
+
+// رندرة قائمة الموظفين (المسؤولين)
+export async function renderStaffManagement() {
+    const list = document.getElementById("admin-staff-list");
+    if (!list) return;
+
+    list.innerHTML = `<div class="p-10 text-center"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-emerald-500"></i></div>`;
+    if (window.lucide) lucide.createIcons();
+
+    try {
+        // جلب البيانات من مسار staff المخصص
+        const staffRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "staff");
+        const snap = await window.firestoreUtils.getDocs(staffRef);
+        
+        const staff = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        if (staff.length === 0) {
+            list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لم تقم بتعيين أي مسؤولين بعد</div>`;
+            return;
+        }
+
+        const roleLabels = window.RBAC_LABELS || { admin: "مدير عام النظام", importer: "مسؤول استيراد البيانات", editor: "محرر الوسائط والصور", inventory: "مراقب المخزون", creator: "مدخل بيانات منتجات", reviewer: "مراجع جودة وتعديلات" };
+
+        list.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-black text-slate-800">طاقم العمل والمسؤولين (${staff.length})</h3>
+                    <button onclick="openAddAdminModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold">إضافة مسؤول جديد</button>
+                </div>
+                ${staff.map(s => `
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-500">
+                                ${s.email[0].toUpperCase()}
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-800">${s.email}</p>
+                                <p class="text-[10px] text-emerald-600 font-black tracking-widest uppercase">${roleLabels[s.role] || s.role}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.editStaffRole('${s.email}')" class="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm" title="تعديل الرتبة">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            ${s.email !== window.PRIMARY_ADMIN_EMAIL ? `
+                                <button onclick="window.demoteStaff('${s.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors" title="إلغاء الصلاحيات">
+                                    <i data-lucide="user-minus" class="w-4 h-4"></i>
+                                </button>
+                            ` : '<span class="text-[9px] bg-slate-50 px-2 py-1 rounded text-slate-400 font-bold">أنت</span>'}
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+    } catch (e) {
+        list.innerHTML = `<div class="p-10 text-center text-red-500 font-bold">فشل تحميل قائمة الطاقم</div>`;
+    }
+}
+
+// رندرة قائمة المنتجات التي تنتظر المراجعة
+export function renderAdminReviewQueue() {
+    const list = document.getElementById("admin-review-list");
+    if (!list) return;
+    
+    const pendingItems = window.products.filter(p => p.isApproved === false);
+    
+    if (pendingItems.length === 0) {
+        list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات تنتظر المراجعة حالياً ✅</div>`;
+        return;
+    }
+    
+    list.innerHTML = `
+        <div class="space-y-4">
+            <h3 class="font-black text-slate-800 mb-4">طلبات التعديل والإضافة الجديدة (${pendingItems.length})</h3>
+            ${pendingItems.map(p => `
+                <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <img src="${p.img || 'img/logo.png'}" class="w-12 h-12 rounded-xl object-cover">
+                        <div>
+                            <p class="font-bold text-sm text-slate-800">${p.name}</p>
+                            <p class="text-[10px] text-amber-600 font-bold">بواسطة موظف - ينتظر قرارك</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="approveProduct('${p.id}')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all">قبول ونشر</button>
+                        <button onclick="deleteProduct('${p.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">رفض وحذف</button>
+                    </div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+window.renderAdminReviewQueue = renderAdminReviewQueue;
+
+window.approveProduct = async function(id) {
+    try {
+        const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", id);
+        await window.firestoreUtils.updateDoc(ref, {
+            isApproved: true,
+            status: 'available',
+            approvedAt: window.firestoreUtils.serverTimestamp()
+        });
+        window.showToast("تم اعتماد المنتج ونشره للزبائن", "success");
+    } catch (e) {
+        window.showToast("فشل في الاعتماد", "error");
+    }
+};
 
 // رندرة واجهة الاستيراد المخصصة
 export function renderAdminImportTools() {
@@ -749,6 +935,23 @@ export function renderAdminPromoTools() {
     if (window.lucide) lucide.createIcons();
     if (window.promosAdminUnsub) window.promosAdminUnsub();
     window.promosAdminUnsub = renderPromosAdminList();
+    const bannerContainer = document.createElement("div");
+    bannerContainer.className = "bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm animate-fade-in mt-6";
+    bannerContainer.innerHTML = `
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
+                <i data-lucide="image" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="font-black text-slate-800 text-lg">إدارة البنرات المتحركة (Slider)</h3>
+                <p class="text-[10px] text-slate-500 font-semibold text-right">تظهر في أعلى الصفحة الرئيسية كخلفية متحركة للعروض</p>
+            </div>
+        </div>
+        <div id="admin-banners-list" class="space-y-4"></div>
+    `;
+    list.appendChild(bannerContainer);
+    if (window.lucide) lucide.createIcons();
+    if (typeof window.renderAdminBannersList === "function") window.renderAdminBannersList();
 }
 
 function getEmbedUrl(url) {
@@ -759,16 +962,16 @@ function getEmbedUrl(url) {
             if (url.includes('v=')) { id = url.split('v=')[1].split('&')[0]; }
             else if (url.includes('shorts/')) { id = url.split('shorts/')[1].split('?')[0]; }
             else { id = url.split('/').pop().split('?')[0]; }
-            return `https://www.youtube.com/embed/${id}`;
+            return `https://www.youtube.com/embed/${id}?controls=0&modestbranding=1&rel=0&showinfo=0&fs=0&iv_load_policy=3`;
         } else if (url.includes('tiktok.com')) {
             const idMatch = url.match(/\/video\/(\d+)/);
             const id = idMatch ? idMatch[1] : url.split('/').pop().split('?')[0];
-            return `https://www.tiktok.com/embed/v2/${id}`;
+            return `https://www.tiktok.com/embed/v2/${id}?hide_more=1&hide_text=1`;
         } else if (url.includes('facebook.com')) {
-            return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}`;
+            return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=auto`;
         } else if (url.includes('instagram.com')) {
             const baseUrl = url.split('?')[0];
-            return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}embed`;
+            return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}embed/captioned=false`;
         }
     } catch (e) { console.error("URL Parse error", e); }
     return url;
@@ -1343,13 +1546,15 @@ export function renderInventoryAudit() {
           <p class="font-bold text-slate-800 truncate">${p.name}</p>
           <p class="text-[10px] text-slate-400 font-mono">SKU: ${p.sku||'-'}</p>
         </td>
-        <td class="p-4 text-center font-black text-slate-700">${qty}</td>
+        <td class="p-4 text-center">
+          <span class="inline-block px-3 py-1 bg-slate-100 rounded-lg font-black text-lg text-slate-800 shadow-sm border border-slate-200/50">${qty}</span>
+        </td>
         <td class="p-4">
           <div class="flex items-center justify-end gap-2">
-            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-64 p-6 border-4 border-slate-400 rounded-[2.5rem] text-center font-black text-3xl focus:border-emerald-600 focus:ring-[12px] focus:ring-emerald-100 outline-none transition-all shadow-2xl bg-white text-slate-900">
-            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-32 p-2.5 border-2 border-slate-300 rounded-xl text-center font-black text-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all bg-white text-slate-900">
-            <button onclick="updateProductQty('${p.id}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
-              <i data-lucide="check" class="w-4 h-4"></i>
+
+            <input type="number" id="inline-qty-${p.id}" value="${qty}" class="w-24 p-2.5 border-2 border-slate-300 rounded-xl text-center font-black text-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all bg-white text-slate-900 shadow-sm">
+            <button onclick="updateProductQty('${p.id}')" class="w-10 h-10 flex items-center justify-center bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-md active:scale-90">
+              <i data-lucide="check" class="w-5 h-5"></i>
             </button>
           </div>
         </td>
@@ -1617,4 +1822,105 @@ window.updateProductQty = async (id) => {
   }
 
   window.showNotification("تم تحديث الكمية وتزامن الحالة بنجاح");
+};
+function showToast(msg, type) { if(window.showToast) window.showToast(msg, type); }
+
+window.renderAdminBannersList = async function() {
+  const list = document.getElementById("admin-banners-list");
+  if (!list) return;
+
+  list.innerHTML = `<div class="p-10 text-center"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-emerald-500"></i></div>`;
+  if (window.lucide) lucide.createIcons();
+
+  try {
+      const snap = await window.firestoreUtils.getDocs(window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners"));
+      const banners = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      
+      const addBtn = `<button onclick="window.openBannerModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all mb-4 w-full">+ إضافة بنر جديد</button>`;
+      
+      if (banners.length === 0) {
+          list.innerHTML = addBtn + `<div class="p-10 text-center text-slate-400 font-bold">لا توجد بنرات حالياً</div>`;
+          return;
+      }
+
+      list.innerHTML = addBtn + `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">` + banners.map(b => `
+          <div class="bg-white p-3 rounded-2xl border border-slate-100 flex flex-col gap-3 shadow-sm group">
+              <div class="h-32 rounded-xl overflow-hidden bg-slate-50 relative border border-slate-100">
+                  <img src="${b.img}" class="w-full h-full object-cover">
+              </div>
+              <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-600 truncate flex-1">${b.link || "بدون رابط"}</span>
+                  <div class="flex gap-2">
+                      <button onclick="window.openBannerModal('${b.id}', '${b.img}', '${b.link || ""}')" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                      <button onclick="window.deleteBanner('${b.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                  </div>
+              </div>
+          </div>
+      `).join("") + `</div>`;
+      if (window.lucide) lucide.createIcons();
+  } catch(e) {
+      list.innerHTML = `<div class="p-10 text-center text-red-500">فصل في جلب البنرات</div>`;
+  }
+};
+
+window.openBannerModal = function(id = null, img = "", link = "") {
+  window.editingBannerId = id;
+  const modal = document.getElementById("banner-modal");
+  if (!modal) return;
+  
+  document.getElementById("banner-img-base64").value = img;
+  document.getElementById("banner-link").value = link;
+  document.getElementById("banner-img-preview").src = img;
+  document.getElementById("banner-img-preview").classList.toggle("hidden", !img);
+  document.getElementById("banner-img-placeholder").classList.toggle("hidden", !!img);
+  
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+};
+
+window.closeBannerModal = function() {
+  document.getElementById("banner-modal").classList.add("hidden");
+  document.getElementById("banner-modal").classList.remove("flex");
+  window.editingBannerId = null;
+};
+
+window.saveBanner = async function() {
+  const img = document.getElementById("banner-img-base64").value;
+  const link = document.getElementById("banner-link").value.trim();
+  
+  if (!img) return showToast("يرجى رفع صورة للبنر", "warning");
+
+  const data = {
+      img,
+      link,
+      updatedAt: window.firestoreUtils.serverTimestamp()
+  };
+
+  const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners");
+  window.showNotification("جاري حفظ البنر...");
+
+  try {
+      if (window.editingBannerId) {
+          await window.firestoreUtils.updateDoc(window.firestoreUtils.doc(ref, window.editingBannerId), data);
+      } else {
+          data.createdAt = window.firestoreUtils.serverTimestamp();
+          await window.firestoreUtils.addDoc(ref, data);
+      }
+      showToast("تم الحفظ بنجاح", "success");
+      window.closeBannerModal();
+      window.renderAdminBannersList();
+  } catch(e) {
+      showToast("خطأ في الحفظ", "error");
+  }
+};
+
+window.deleteBanner = async function(id) {
+  if (!confirm("هل أنت متأكد من حذف هذا البنر؟")) return;
+  try {
+      await window.firestoreUtils.deleteDoc(window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "banners", id));
+      showToast("تم الحذف بنجاح", "success");
+      window.renderAdminBannersList();
+  } catch(e) {
+      showToast("خطأ في الحذف", "error");
+  }
 };

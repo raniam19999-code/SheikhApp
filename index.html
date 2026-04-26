@@ -359,40 +359,34 @@
     <main class="max-w-4xl mx-auto">
       <!-- Home Tab -->
       <section id="home" class="tab-content active">
-        <!-- Banner -->
-        <div class="p-4 sm:p-5">
-          <div
-            class="bg-[#1B4332] rounded-[2rem] p-6 sm:p-8 text-white relative overflow-hidden h-48 sm:h-56 flex items-center card-shadow group"
-          >
-            <div
-              class="absolute inset-0 bg-gradient-to-l from-black/40 to-transparent"
-            ></div>
-            <div
-              class="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"
-            ></div>
-            <div class="z-10 relative w-full">
-              <span
-                class="bg-amber-500/20 text-amber-400 text-[10px] sm:text-xs px-3 py-1.5 rounded-full mb-3 sm:mb-4 inline-block font-bold backdrop-blur-md border border-amber-500/30 tracking-widest"
-                >ثقة • جودة • سرعة</span
-              >
-              <h2 class="text-3xl sm:text-4xl font-black mb-1.5 drop-shadow-md">
-                عروض الجملة!
-              </h2>
-              <button
-                onclick="document.getElementById('search-input').focus()"
-                class="bg-amber-500 text-[#081C15] px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:scale-105 transition-transform"
-              >
-                ابدأ التسوق
+        <!-- Dynamic Banner Slider - Full Cover Edge-to-Edge Style -->
+        <div class="relative group">
+          <div class="overflow-hidden shadow-lg bg-[#1B4332] relative h-56 sm:h-80 border-b border-white/10">
+            
+            <!-- Sliding Background (Full Cover) -->
+            <div id="home-banner-slider" class="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto no-scrollbar" style="scroll-behavior: smooth;">
+              <!-- Loading skeleton -->
+              <div class="w-full h-full shrink-0 bg-[#1B4332] animate-pulse flex items-center justify-center flex-col gap-3">
+                <i data-lucide="image" class="w-10 h-10 text-emerald-700"></i>
+                <span class="text-emerald-700 text-xs font-bold">جاري تحميل العروض...</span>
+              </div>
+            </div>
+
+            <!-- Gradient Overlay (خفيف لوضوح النص فقط) -->
+            <div class="absolute inset-0 bg-gradient-to-r from-black/50 via-black/15 to-transparent pointer-events-none"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div>
+
+            <!-- Static Text Overlay -->
+            <div class="z-10 relative w-full p-6 sm:p-8 pointer-events-none h-full flex flex-col justify-center">
+              <span class="bg-amber-500/20 text-amber-400 text-[10px] sm:text-xs px-3 py-1.5 rounded-full mb-3 sm:mb-4 inline-block font-bold backdrop-blur-md border border-amber-500/30 tracking-widest pointer-events-auto shadow-lg w-fit">ثقة • جودة • سرعة</span>
+              <h2 class="text-3xl sm:text-5xl font-black mb-2 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]">عروض الجملة!</h2>
+              <button onclick="document.getElementById('search-input').focus()" class="mt-2 bg-gradient-to-r from-amber-400 to-amber-500 text-[#081C15] px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-black shadow-lg shadow-amber-500/30 hover:scale-105 transition-transform pointer-events-auto flex items-center gap-2 w-fit">
+                <i data-lucide="shopping-bag" class="w-4 h-4"></i> ابدأ التسوق
               </button>
             </div>
-            <div
-              class="absolute -left-4 -bottom-4 opacity-20 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-700"
-            >
-              <i
-                data-lucide="shopping-bag"
-                class="w-48 h-48 sm:w-64 sm:h-64"
-              ></i>
-            </div>
+            
+            <!-- Dots -->
+            <div id="banner-dots" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10"></div>
           </div>
         </div>
 
@@ -908,6 +902,17 @@
                       class="w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs font-semibold mb-2"
                       dir="ltr"
                     />
+                    <p class="text-xs font-bold text-slate-700 mb-2">
+                      الرتبة / الوظيفة:
+                    </p>
+                    <select id="new-admin-role" class="w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs font-semibold mb-3 outline-none focus:border-emerald-500">
+                        <option value="creator">مدخل بيانات منتجات</option>
+                        <option value="editor">محرر وسائط وصور</option>
+                        <option value="inventory">مراقب مخزون</option>
+                        <option value="importer">مسؤول استيراد بيانات</option>
+                      <option value="reviewer">مراجع تعديلات (اعتماد)</option>
+                        <option value="admin">مدير عام (صلاحيات كاملة)</option>
+                    </select>
                     <button
                       onclick="promoteUserToAdmin()"
                       class="w-full bg-[#1B4332] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#2D6A4F] transition-colors"
@@ -987,6 +992,21 @@
               >
                 البوت
               </button>
+              <button
+                onclick="showAdminSubTab('review')"
+                id="admin-tab-review"
+                class="flex-1 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
+              >
+                المراجعة
+              </button>
+              <button
+                onclick="showAdminSubTab('staff')"
+                id="admin-tab-staff"
+                class="flex-1 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
+              >
+                الطاقم
+              </button>
+
             </div>
 
             <!-- تم دمج أدوات الرفع داخل تبويب المخزن مباشرة لسهولة الوصول -->
@@ -1008,6 +1028,9 @@
             <div id="admin-i-list" class="space-y-4 hidden"></div>
             <div id="admin-import-list" class="space-y-4 hidden"></div>
             <div id="admin-promo-list" class="space-y-4 hidden"></div>
+            <div id="admin-review-list" class="space-y-4 hidden"></div>
+            <div id="admin-staff-list" class="space-y-4 hidden"></div>
+
             
             <!-- لوحة تدريب البوت (للمدير الأساسي فقط) -->
             <div id="admin-bot-list" class="space-y-4 hidden">
@@ -1179,7 +1202,7 @@
         </div>
 
         <div>
-          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
+          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block" for="p-cat"
             >اختر القسم</label
           >
           <select
@@ -1190,7 +1213,7 @@
           </select>
         </div>
         <div>
-          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
+          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block" for="p-name"
             >اسم المنتج</label
           >
           <input
@@ -1203,7 +1226,18 @@
         </div>
 
         <div>
-          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
+          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block" for="p-desc"
+            >وصف المنتج (اختياري)</label
+          >
+          <textarea
+            id="p-desc"
+            placeholder="اكتب وصفاً جذاباً للمنتج هنا..."
+            class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 font-semibold text-slate-800 h-24 resize-none"
+          ></textarea>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block" for="p-unit"
             >الكميه / الوحدة</label
           >
           <select
@@ -1264,7 +1298,7 @@
         </div>
 
         <div>
-          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block"
+          <label class="text-[11px] font-bold text-slate-500 mb-1.5 block" for="p-quantities"
             >الكميات المتاحة (مفصولة بفاصلة)</label
           >
           <input
@@ -1811,6 +1845,42 @@
         >!</span
       >
     </button>
+
+
+    <!-- Banner Modal -->
+    <div id="banner-modal" class="fixed inset-0 z-[60] hidden bg-slate-900/40 backdrop-blur-sm items-center justify-center p-4 modal-enter">
+      <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+          <h3 class="font-black text-xl text-slate-800">إضافة بنر إعلاني</h3>
+          <button onclick="window.closeBannerModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:bg-slate-100 transition-colors shadow-sm">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-2 block">صورة البنر المخصصة (أبعاد عرضية)</label>
+            <div class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:border-emerald-500 transition-colors cursor-pointer relative group bg-slate-50" onclick="document.getElementById('banner-img-file').click()">
+              <input type="file" id="banner-img-file" class="hidden" accept="image/*" onchange="handleImageUpload(event, 'banner-img-preview', 'banner-img-base64', 1920)">
+              <div id="banner-img-placeholder" class="py-4 text-slate-400">
+                <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto mb-2 opacity-50 group-hover:scale-110 transition-transform"></i>
+                <span class="text-sm font-bold block">اضغط لاختيار صورة للبنر</span>
+              </div>
+              <img id="banner-img-preview" src="" class="hidden w-full h-32 object-cover rounded-xl shadow-inner mt-2">
+              <input type="hidden" id="banner-img-base64">
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-500 mb-1.5 block">رابط عند الضغط على البنر (اختياري)</label>
+            <input type="text" id="banner-link" placeholder="مثال: https://... أو اتركه فارغاً" class="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-emerald-400 font-semibold" dir="ltr">
+          </div>
+        </div>
+        <div class="p-6 border-t border-slate-100 bg-slate-50/50 shrink-0">
+          <button onclick="window.saveBanner()" class="w-full bg-[#1B4332] text-white py-4 rounded-xl font-black text-sm shadow-xl shadow-emerald-100 hover:bg-[#2D6A4F] active:scale-95 transition-all">
+            حفظ ونشر البنر
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="app.js?v=9.9"></script>
   </body>

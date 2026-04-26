@@ -1,7 +1,7 @@
-
 /* ========================================================
    auth.js: تسجيل الدخول وإدارة الصلاحيات
 ======================================================== */
+import * as RBAC from "./rbac.js";
 
 export async function initAuth() {
   // تفعيل بقاء تسجيل الدخول حتى عند إغلاق المتصفح
@@ -68,7 +68,37 @@ export function listenToAuth() {
         user.uid,
       );
 
-      // استخدام المستمع اللحظي (onSnapshot) لضمان تفعيل صلاحيات الإدارة فوراً دون تحديث الصفحة
+      // جلب الرتبة من Firestore (الموظفين أو المستخدمين) مع دعم حالة الأوفلاين
+      const staffRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "staff", user.uid);
+      
+      try {
+        const staffSnap = await window.firestoreUtils.getDoc(staffRef);
+        if (staffSnap.exists()) {
+            window.currentUserRole = String(staffSnap.data().role || 'user').trim().toLowerCase();
+        } else {
+            const userDoc = await window.firestoreUtils.getDoc(uRef);
+            window.currentUserRole = userDoc.exists() ? String(userDoc.data().role || 'user').trim().toLowerCase() : 'user';
+        }
+      } catch (offlineErr) {
+        console.warn("Offline mode - using fallback role detection:", offlineErr.message);
+        // في حالة الأوفلاين: إذا كان البريد هو المدير الأساسي، نمنحه صلاحية admin
+        if (user.email && user.email.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+            window.currentUserRole = "admin";
+        } else {
+            // محاولة استرجاع الرتبة من التخزين المحلي
+            const cachedRole = localStorage.getItem("cachedRole_" + user.uid);
+            window.currentUserRole = cachedRole || "user";
+        }
+      }
+      
+      // حفظ الرتبة في التخزين المحلي للاستخدام في حالة الأوفلاين مستقبلاً
+      if (window.currentUserRole && window.currentUserRole !== "user") {
+        localStorage.setItem("cachedRole_" + user.uid, window.currentUserRole);
+      }
+
+      RBAC.applyUIPermissions(); // تطبيق الصلاحيات فوراً بعد التعيين كما طلبت
+
+      // الاستمرار في مراقبة التغييرات لضمان استقرار النظام
       window.unsubs.userProfile = window.firestoreUtils.onSnapshot(uRef, async (uDoc) => {
         const data = uDoc.exists() ? uDoc.data() : {};
         
@@ -77,11 +107,22 @@ export function listenToAuth() {
           return;
         }
 
-        if (data.role === "admin") {
-          window.currentUserRole = "admin";
+        // تنظيف الرتبة وتوحيدها لضمان العمل الفوري
+        const userRole = String(data.role || "user").trim().toLowerCase();
+        window.currentUserRole = userRole;
+
+        // تحديث المسمى الوظيفي فوراً في الملف الشخصي (Profile)
+        const roleLabel = RBAC.ROLE_LABELS[userRole] || "موظف مسؤول";
+        const roleElem = document.getElementById("profile-role");
+        if (roleElem) roleElem.innerText = roleLabel;
+
+        if (userRole !== "user") {
           document.body.classList.add("is-admin");
+          // إظهار كافة أقسام لوحة التحكم للموظفين (ستقوم صلاحيات RBAC بتصفية المحتوى لاحقاً)
+          document.querySelectorAll(".admin-only").forEach(el => el.classList.remove("hidden"));
+          
           document.getElementById("admin-badge")?.classList.remove("hidden");
-          document.getElementById("admin-tab")?.classList.remove("hidden");
+          document.getElementById("admin-notification-badge")?.classList.remove("hidden");
 
           if(user.email && user.email.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase()) {
               document.getElementById("admin-tab-bot")?.classList.remove("hidden");
@@ -89,14 +130,46 @@ export function listenToAuth() {
           if (!window.unsubs.orders && typeof window.listenToOrders === "function")
             window.unsubs.orders = window.listenToOrders();
           
+          // بدء الاستماع للإشعارات الإدارية للمراجعين والمديرين
+          if (userRole === "admin" || userRole === "reviewer") {
+              if (!window.unsubs.systemNotifications) {
+                  const startTime = Date.now(); // تجنب إظهار الإشعارات القديمة عند التحميل
+                  const q = window.firestoreUtils.query(
+                      window.firestoreUtils.collection(window.db, "artifacts", window.appId, "notifications"),
+                      window.firestoreUtils.limit(5)
+                  );
+                  window.unsubs.systemNotifications = window.firestoreUtils.onSnapshot(q, (snap) => {
+                      snap.docChanges().forEach((change) => {
+                          if (change.type === "added") {
+                              const nData = change.doc.data();
+                              // التأكد أن الإشعار جديد (بعد فتح الصفحة)
+                              const isNew = nData.createdAt && (nData.createdAt.seconds * 1000) > startTime;
+                              if (isNew && window.createNotification) {
+                                  window.createNotification(
+                                      nData.title,
+                                      nData.message,
+                                      nData.type || 'info',
+                                      nData.icon || 'bell',
+                                      "فتح المراجعة",
+                                      () => window.showAdminSubTab(nData.targetTab || 'review')
+                                  );
+                              }
+                          }
+                      });
+                  });
+              }
+          }
+
           window.renderAdminProducts();
           window.renderAdminCategories();
         } else {
-          window.currentUserRole = "user";
           document.body.classList.remove("is-admin");
           if (!window.unsubs.myOrders && typeof window.loadUserOrders === "function")
             window.unsubs.myOrders = window.loadUserOrders();
         }
+        
+        // تطبيق قيود الواجهة فوراً للجميع (أدمن أو مستخدم) لضمان دقة البيانات المعروضة
+        RBAC.applyUIPermissions();
       });
 
       if (!window.unsubs.userCart)
@@ -131,12 +204,13 @@ export async function handleAuth() {
     );
   try {
     if (window.authMode === "signup") {
+      const cleanEmail = email.toLowerCase();
       const res = await window.authUtils.createUserWithEmailAndPassword(
         window.auth,
-        email,
+        cleanEmail,
         pass,
       );
-      const role = email === window.PRIMARY_ADMIN_EMAIL ? "admin" : "user";
+      const role = cleanEmail === window.PRIMARY_ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
       await window.firestoreUtils.setDoc(
         window.firestoreUtils.doc(
           window.db,
@@ -146,7 +220,7 @@ export async function handleAuth() {
           res.user.uid,
         ),
         {
-          email,
+          email: cleanEmail,
           role,
           uid: res.user.uid,
           createdAt: window.firestoreUtils.serverTimestamp(),
@@ -276,12 +350,10 @@ export async function signInWithGoogle() {
     const uDoc = await window.firestoreUtils.getDoc(uRef);
 
     if (!uDoc.exists()) {
-      let role =
-        user.email?.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase()
-          ? "admin"
-          : "user";
+      const email = (user.email || "").toLowerCase();
+      let role = email === window.PRIMARY_ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
       await window.firestoreUtils.setDoc(uRef, {
-        email: user.email,
+        email: email,
         role: role,
         uid: user.uid,
         name: user.displayName,
@@ -314,6 +386,9 @@ export function toggleModalAuthMode() {
 
 export async function promoteUserToAdmin() {
   const email = document.getElementById("new-admin-email").value.trim();
+  // جلب الرتبة المختارة من القائمة المنسدلة في المودال
+  const role = document.getElementById("new-admin-role")?.value || "creator";
+
   if (!email)
     return window.showToast("يرجى إدخال البريد الإلكتروني", "warning");
 
@@ -337,14 +412,57 @@ export async function promoteUserToAdmin() {
       var userDoc = snap.docs[0];
     }
 
-    await window.firestoreUtils.updateDoc(userDoc.ref, { 
-      role: "admin",
+    const uid = userDoc.id;
+
+    // 1. تحديث الرتبة في ملف المستخدم العام
+    await window.firestoreUtils.updateDoc(userDoc.ref, {
+      role: role, // تعيين الرتبة المحددة (importer, inventory, etc)
       promotedAt: window.firestoreUtils.serverTimestamp()
     });
     
-    window.showToast("تمت ترقية المستخدم لمدير بنجاح", "success");
+    // 2. إضافة السجل إلى مسار الموظفين (staff) لضمان التعرف السريع
+    const staffDocRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "staff", uid);
+    await window.firestoreUtils.setDoc(staffDocRef, {
+        email: email.toLowerCase(),
+        role: role,
+        updatedAt: window.firestoreUtils.serverTimestamp()
+    }, { merge: true });
+
+    // عرض رسالة توضح الرتبة التي تم تعيينها بناءً على المسميات في rbac.js
+    const roleLabel = RBAC.ROLE_LABELS[role] || role;
+    window.showToast(`تم تعيين المستخدم كـ ${roleLabel} بنجاح`, "success");
     document.getElementById("add-admin-modal").classList.add("hidden");
   } catch (e) {
     window.showToast("فشل في الترقية", "error");
   }
 }
+
+window.demoteStaff = async function(userId) {
+    if(!confirm("هل أنت متأكد من إلغاء صلاحيات هذا المسؤول وإرجاعه مستخدماً عادياً؟")) return;
+    try {
+        const userRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "users", userId);
+        const staffDocRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "staff", userId);
+
+        // إلغاء الرتبة من ملف المستخدم
+        await window.firestoreUtils.updateDoc(userRef, { 
+            role: "user",
+            demotedAt: window.firestoreUtils.serverTimestamp()
+        });
+        
+        // حذف السجل من مسار الموظفين
+        await window.firestoreUtils.deleteDoc(staffDocRef);
+
+        window.showToast("تم إلغاء صلاحيات المسؤول بنجاح", "success");
+        if(window.renderStaffManagement) window.renderStaffManagement();
+    } catch(e) { window.showToast("فشل الإجراء", "error"); }
+}
+
+window.editStaffRole = function(email) {
+    const emailInput = document.getElementById("new-admin-email");
+    const modal = document.getElementById("add-admin-modal");
+    
+    if (emailInput) emailInput.value = email;
+    // إظهار النافذة مباشرة بدلاً من التبديل (Toggle) لضمان الفتح
+    if (modal) modal.classList.remove("hidden");
+    window.showToast("اختر الرتبة الجديدة لهذا الموظف ثم اضغط تعيين", "info");
+};

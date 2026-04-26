@@ -147,7 +147,7 @@ window.getPricingFieldsHTML = function (product) {
   return `
     <div class="grid grid-cols-1 gap-3 mb-3">
       <div>
-        <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">الكود / SKU</label>
+        <label class="text-[11px] font-bold text-slate-500 mb-1.5 block" for="p-sku">الكود / SKU</label>
         <input type="text" id="p-sku" value="${sku}" placeholder="مثال: SH-1001" 
                class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-transparent focus:border-emerald-500 font-mono text-xs" />
       </div>

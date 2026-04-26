@@ -457,7 +457,8 @@ window.renderSubcategoriesInMainGrid = function (parentId = null) {
     if (parentId === null) {
       titleEl.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`;
     } else {
-      titleEl.innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> أقسام: ${displayTitle}`;
+      const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+      titleEl.innerHTML = `${backBtn} <i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> أقسام: ${displayTitle}`;
     }
   }
 
@@ -471,8 +472,14 @@ async function startApp() {
   listenToCategories();
   listenToProducts();
   if (!window.unsubs.promos) window.unsubs.promos = listenToPromotions();
+  if (!window.unsubs.banners) window.unsubs.banners = listenToBanners();
   Auth.initAuth();
   Auth.listenToAuth();
+
+  // إخفاء واجهة التحميل (Loader) لضمان ظهور الموقع للمستخدم
+  const loader = document.getElementById("app-loader");
+  if (loader) loader.classList.add("hidden");
+  document.body.classList.remove("is-loading");
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
@@ -530,6 +537,11 @@ function listenToProducts() {
     } else {
       window.applyCurrentFilter(); // This will call renderProducts
     }
+
+    // التأكد من إخفاء اللودر عند وصول أول دفعة بيانات من المنتجات
+    const loader = document.getElementById("app-loader");
+    if (loader) loader.classList.add("hidden");
+    document.body.classList.remove("is-loading");
 
     if (document.body.classList.contains("is-admin")) {
       // تحديث العدادات الذكية فوراً دون انتظار الرندرة الثقيلة
@@ -602,6 +614,82 @@ function startPromoAutoCycle(container) {
     }, 5000); // تغيير الإعلان كل 5 ثوانٍ
 }
 
+let bannerAutoScrollInterval;
+
+function listenToBanners() {
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const banners = snap.docs.map(doc => doc.data()).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        const slider = document.getElementById("home-banner-slider");
+        const dotsContainer = document.getElementById("banner-dots");
+        
+        if (!slider) return;
+        
+        if (banners.length === 0) {
+            // عرض بنر افتراضي عند عدم وجود بنرات
+            slider.innerHTML = `
+                <div class="w-full h-full shrink-0 bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C] flex items-center justify-center snap-center">
+                    <div class="text-center p-6">
+                        <span class="bg-amber-500/20 text-amber-400 text-[10px] sm:text-xs px-3 py-1.5 rounded-full mb-3 inline-block font-bold border border-amber-500/30 tracking-widest">ثقة • جودة • سرعة</span>
+                        <h2 class="text-3xl sm:text-5xl font-black text-white drop-shadow-lg mb-3">عروض الجملة!</h2>
+                        <button onclick="document.getElementById('search-input').focus()" class="bg-gradient-to-r from-amber-400 to-amber-500 text-[#081C15] px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black shadow-lg hover:scale-105 transition-transform">ابدأ التسوق</button>
+                    </div>
+                </div>
+            `;
+            if (dotsContainer) dotsContainer.innerHTML = "";
+            return;
+        }
+        
+        slider.innerHTML = banners.map(b => `
+            <div class="min-w-full h-full shrink-0 relative group snap-center cursor-pointer" ${b.link ? `onclick="window.open('${b.link}', '_blank')"` : ''}>
+                <img src="${b.img}" class="w-full h-full object-cover block" loading="lazy">
+            </div>
+        `).join("");
+
+        if (dotsContainer && banners.length > 1) {
+            dotsContainer.innerHTML = banners.map((_, i) => `
+                <div class="w-2.5 h-2.5 rounded-full transition-all duration-300 shadow-md ${i === 0 ? 'bg-white w-5 shadow-white/40' : 'bg-white/40'}"></div>
+            `).join("");
+
+            slider.addEventListener('scroll', () => {
+                const scrollLeft = slider.scrollLeft;
+                const width = slider.offsetWidth;
+                const index = Math.round(scrollLeft / width);
+                const dots = dotsContainer.children;
+                for (let i = 0; i < dots.length; i++) {
+                    dots[i].className = `w-2.5 h-2.5 rounded-full transition-all duration-300 shadow-md ${i === index ? 'bg-white w-5 shadow-white/40' : 'bg-white/40'}`;
+                }
+            });
+        } else if (dotsContainer) {
+            dotsContainer.innerHTML = "";
+        }
+
+        startBannerAutoCycle(slider, banners.length);
+    });
+}
+
+function startBannerAutoCycle(container, count) {
+    if (bannerAutoScrollInterval) clearInterval(bannerAutoScrollInterval);
+    if (count <= 1) return;
+    
+    bannerAutoScrollInterval = setInterval(() => {
+        const scrollAmount = container.offsetWidth;
+        const isAtEnd = container.scrollLeft + container.offsetWidth >= container.scrollWidth - 20;
+
+        if (isAtEnd) {
+            container.scrollTo({
+                left: 0,
+                behavior: 'smooth'
+            });
+        } else {
+            container.scrollBy({
+                left: scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+    }, 1000);
+}
+
 function listenToCategories() {
   const q = window.firestoreUtils.query(
     window.firestoreUtils.collection(
@@ -646,7 +734,8 @@ window.filterByCategory = function (catId, catName) {
   );
   const title = document.getElementById("current-category-title");
   if (title) {
-    title.innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> قسم: ${catName}`;
+    const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+    title.innerHTML = `${backBtn} <i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> قسم: ${catName}`;
     if (window.lucide) lucide.createIcons();
   }
   window.renderProducts(filtered);
@@ -714,7 +803,8 @@ window.searchProducts = function (term) {
 
   const titleElem = document.getElementById("current-category-title");
   if (titleElem) {
-    titleElem.innerHTML = `<i data-lucide="search" class="w-5 h-5 text-emerald-500"></i> نتائج البحث: ${term}`;
+    const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+    titleElem.innerHTML = `${backBtn} <i data-lucide="search" class="w-5 h-5 text-emerald-500"></i> نتائج البحث: ${term}`;
   }
   window.renderProducts(filtered);
 };
@@ -856,15 +946,14 @@ window.handleImageUpload = function (
         height *= maxSize / width;
         width = maxSize;
       }
-      // تقليل العرض الأقصى للصور المرفوعة يدوياً أيضاً إذا لم يتم تحديده
-      const finalWidth = Math.min(width, 500);
-      const finalHeight = (finalWidth / width) * height;
 
-      canvas.width = finalWidth;
-      canvas.height = finalHeight;
-      canvas.getContext("2d").drawImage(img, 0, 0, finalWidth, finalHeight);
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
 
-      const base64 = canvas.toDataURL("image/jpeg", 0.5);
+      // جودة أعلى للبنرات (maxSize كبير) وجودة معقولة للمنتجات
+      const quality = maxSize >= 1200 ? 0.95 : 0.6;
+      const base64 = canvas.toDataURL("image/jpeg", quality);
       document.getElementById(previewId).src = base64;
       document.getElementById(previewId).classList.remove("hidden");
       if (

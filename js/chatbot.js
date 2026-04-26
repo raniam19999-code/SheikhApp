@@ -470,6 +470,42 @@ window.loadCustomBotResponses = async function() {
     }
 };
 
+// دالة بناء واجهة إدارة البوت (التي تظهر في لوحة التحكم)
+window.renderAdminBotUI = function() {
+    const list = document.getElementById("admin-bot-list");
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
+                    <i data-lucide="bot" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-black text-slate-800 text-lg">تدريب المساعد الذكي</h3>
+                    <p class="text-[10px] text-slate-500 font-semibold">أضف كلمات مفتاحية والرد الذي يقدمه البوت للعملاء</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
+                <input type="text" id="bot-train-keywords" placeholder="الكلمات المفتاحية (مثال: سعر، تكلفة، بكم)" class="w-full p-4 bg-white border-none rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-sm">
+                <textarea id="bot-train-response" placeholder="الرد الذي سيظهر للعميل..." class="w-full p-4 bg-white border-none rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-sm min-h-[100px]"></textarea>
+                <button onclick="window.saveBotResponse()" class="w-full py-4 bg-[#1B4332] text-white rounded-2xl font-black text-sm shadow-lg hover:scale-[1.01] transition-transform flex items-center justify-center gap-2">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> حفظ الرد الذكي
+                </button>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100">
+                <h4 class="font-black text-slate-800 text-sm mb-4">الردود المبرمجة حالياً</h4>
+                <div id="admin-bot-responses-list" class="space-y-3">
+                    <!-- يتم رندرة الردود المبرمجة هنا -->
+                </div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+};
+
 window.saveBotResponse = async function() {
     const keywordsInput = document.getElementById("bot-train-keywords");
     const responseInput = document.getElementById("bot-train-response");
