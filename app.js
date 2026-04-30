@@ -185,16 +185,6 @@ window.renderCategories = function () {
         `;
       })
       .join("");
-  } else {
-    // دخلنا في قسم رئيسي، الكل يختفي ونظهر فقط زر الرجوع في الشريط العلوي
-    html += `
-      <div onclick="window.navigateBackCategories()" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
-        <div class="w-28 sm:w-32 h-28 sm:h-32 rounded-[2.5rem] bg-slate-50 shadow-md border-2 border-slate-100 flex items-center justify-center overflow-hidden group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-500 group-hover:-translate-y-2 transition-all duration-500">
-          <i data-lucide="arrow-right" class="w-10 h-10 group-hover:scale-125 transition-transform duration-500"></i>
-        </div>
-        <span class="text-[11px] sm:text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">رجوع للأقسام</span>
-      </div>
-    `;
   }
 
   container.className =

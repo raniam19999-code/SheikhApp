@@ -345,16 +345,40 @@ export async function saveCategory() {
     "categories",
   );
 
+  // تأمين النظام: إذا لم يكن سوبر أدمن أو مراجع، يتم إرسال القسم للمراجعة
+  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+    data.isApproved = false;
+  } else {
+    data.isApproved = true;
+  }
+
   try {
     if (window.editingId) {
       await window.firestoreUtils.updateDoc(
         window.firestoreUtils.doc(ref, window.editingId),
         data,
       );
-      window.showToast("تم تحديث القسم", "success");
+      const msg = window.currentUserRole === 'admin' ? "تم تحديث القسم" : "تم إرسال التعديل للمراجعة";
+      window.showToast(msg, "success");
     } else {
       await window.firestoreUtils.addDoc(ref, data);
-      window.showToast("تم إضافة القسم بنجاح", "success");
+      const msg = window.currentUserRole === 'admin' ? "تم إضافة القسم بنجاح" : "تم إضافة القسم بنجاح بانتظار المراجعة";
+      window.showToast(msg, "success");
+      
+      // إشعار للمدير
+      if (window.currentUserRole !== 'admin') {
+        await window.firestoreUtils.addDoc(
+          window.firestoreUtils.collection(window.db, "artifacts", window.appId, "notifications"),
+          {
+            title: "قسم جديد للمراجعة 📁",
+            message: `تم إضافة قسم جديد بانتظار الاعتماد: ${name}`,
+            type: 'warning',
+            icon: 'folder',
+            targetTab: 'review',
+            createdAt: window.firestoreUtils.serverTimestamp()
+          }
+        );
+      }
     }
     closeModals();
   } catch (e) {
@@ -527,23 +551,31 @@ export function renderAdminCategories() {
   if (!list) return;
 
   // الترتيب الأبجدي للأقسام في لوحة الإدارة
-  const sortedCategories = [...(window.categories || [])].sort((a, b) =>
+  let sortedCategories = [...(window.categories || [])].sort((a, b) =>
     (a.name || "").localeCompare(b.name || "", "ar"),
   );
+
+  // تصفية الأقسام غير المعتمدة للموظفين غير المراجعين
+  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+    sortedCategories = sortedCategories.filter(c => c.isApproved !== false);
+  }
 
   let html = sortedCategories
     .map(
       (c) => `
-    <div class="bg-white p-3 rounded-2xl border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-full overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0] relative">
+    <div class="bg-white p-4 rounded-[1.5rem] border border-slate-100 flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0] relative">
           <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${c.img || "img/logo.png"}');"></div>
         </div>
-        <p class="font-bold text-xs text-slate-800">${c.name}</p>
+        <div>
+          <p class="font-black text-sm text-slate-800">${c.name}</p>
+          <p class="text-[9px] text-slate-400 font-bold">معرف: ${c.id.substring(0, 8)}...</p>
+        </div>
       </div>
-      <div class="flex gap-2">
-        <button onclick="openCategoryModal(${JSON.stringify(c).replace(/"/g, "&quot;")})" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-        <button onclick="deleteCategory('${c.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      <div class="flex gap-1">
+        <button onclick="openCategoryModal(${JSON.stringify(c).replace(/"/g, "&quot;")})" class="w-9 h-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+        <button onclick="deleteCategory('${c.id}')" class="w-9 h-9 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>
     </div>
   `,
@@ -834,35 +866,87 @@ export function renderAdminReviewQueue() {
     const list = document.getElementById("admin-review-list");
     if (!list) return;
     
-    const pendingItems = window.products.filter(p => p.isApproved === false);
+    const pendingProducts = window.products.filter(p => p.isApproved === false);
+    const pendingCategories = window.categories.filter(c => c.isApproved === false);
     
-    if (pendingItems.length === 0) {
-        list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات تنتظر المراجعة حالياً ✅</div>`;
+    if (pendingProducts.length === 0 && pendingCategories.length === 0) {
+        list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات أو أقسام تنتظر المراجعة حالياً ✅</div>`;
         return;
     }
     
-    list.innerHTML = `
-        <div class="space-y-4">
-            <h3 class="font-black text-slate-800 mb-4">طلبات التعديل والإضافة الجديدة (${pendingItems.length})</h3>
-            ${pendingItems.map(p => `
-                <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <img src="${p.img || 'img/logo.png'}" class="w-12 h-12 rounded-xl object-cover">
-                        <div>
-                            <p class="font-bold text-sm text-slate-800">${p.name}</p>
-                            <p class="text-[10px] text-amber-600 font-bold">بواسطة موظف - ينتظر قرارك</p>
+    let html = `<div class="space-y-6">`;
+
+    if (pendingCategories.length > 0) {
+        html += `
+            <div>
+                <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="folder" class="w-5 h-5 text-amber-500"></i> أقسام جديدة (${pendingCategories.length})</h3>
+                <div class="space-y-3">
+                    ${pendingCategories.map(c => `
+                        <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <img src="${c.img || 'img/logo.png'}" class="w-12 h-12 rounded-xl object-cover">
+                                <div>
+                                    <p class="font-bold text-sm text-slate-800">${c.name}</p>
+                                    <p class="text-[10px] text-amber-600 font-bold">قسم جديد ينتظر المراجعة</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="approveCategory('${c.id}')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all">قبول</button>
+                                <button onclick="deleteCategory('${c.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">حذف</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="approveProduct('${p.id}')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all">قبول ونشر</button>
-                        <button onclick="deleteProduct('${p.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">رفض وحذف</button>
-                    </div>
+                    `).join("")}
                 </div>
-            `).join("")}
-        </div>
-    `;
+            </div>
+        `;
+    }
+
+    if (pendingProducts.length > 0) {
+        html += `
+            <div>
+                <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-amber-500"></i> منتجات جديدة (${pendingProducts.length})</h3>
+                <div class="space-y-3">
+                    ${pendingProducts.map(p => `
+                        <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <img src="${p.img || 'img/logo.png'}" class="w-12 h-12 rounded-xl object-cover">
+                                <div>
+                                    <p class="font-bold text-sm text-slate-800">${p.name}</p>
+                                    <p class="text-[10px] text-amber-600 font-bold">بواسطة موظف - ينتظر قرارك</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="approveProduct('${p.id}')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all">قبول ونشر</button>
+                                <button onclick="deleteProduct('${p.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">رفض وحذف</button>
+                            </div>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    list.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
 }
 window.renderAdminReviewQueue = renderAdminReviewQueue;
+
+window.approveCategory = async function(id) {
+    if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+        return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
+    }
+    try {
+        const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "categories", id);
+        await window.firestoreUtils.updateDoc(ref, {
+            isApproved: true,
+            approvedAt: window.firestoreUtils.serverTimestamp()
+        });
+        window.showToast("تم اعتماد القسم ونشره", "success");
+    } catch (e) {
+        window.showToast("فشل في الاعتماد", "error");
+    }
+};
 
 window.approveProduct = async function(id) {
     if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
