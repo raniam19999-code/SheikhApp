@@ -138,6 +138,9 @@ function injectRestrictionStyles(role) {
             button[onclick*="deleteProduct"], 
             button[onclick*="deleteOrder"], 
             button[onclick*="deleteCategory"],
+            #add-admin-container,
+            button[onclick="openCategoryModal()"],
+            button[onclick="openProductModal()"],
             #bulk-tools { 
                 display: none !important; 
                 pointer-events: none !important; 

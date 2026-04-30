@@ -17,6 +17,8 @@ import {
   signOut,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore,
@@ -99,6 +101,8 @@ window.authUtils = {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
 };
 
 // دالة عالمية لتنظيف النصوص العربية لضمان مطابقة ذكية (تتجاهل الهمزات، التاء المربوطة، والتشكيل)
@@ -251,6 +255,11 @@ window.renderProducts = function (productsToRender = window.products) {
   const loadMoreBtn = document.getElementById("load-more-container");
   const pw = document.getElementById("products-wrapper");
   if (!grid) return;
+
+  // تصفية المنتجات غير المعتمدة للعملاء
+  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+    productsToRender = productsToRender.filter(p => p.isApproved !== false);
+  }
 
   if (pw) pw.classList.remove("hidden"); // دائماً نظهر شبكة المنتجات الآن، إما لفرعيات أو منتجات
   // حفظ النسخة الحالية للرجوع إليها عند ضغط "عرض المزيد"
@@ -1056,7 +1065,7 @@ Object.entries(exposed).forEach(([name, fn]) => {
   if (typeof fn === "function") window[name] = fn;
 });
 
-// حقن CSS مخصص لتغيير توزيع المنتجات ليصبح 5 في الصف على الكمبيوتر و 3 في الموبايل
+// حقن CSS مخصص لتغيير توزيع المنتجات ليصبح 5 في الصف على الكمبيوتر و 2 في الموبايل
 (function injectGlobalLayoutCSS() {
   if (document.getElementById('global-layout-styles')) return;
   const style = document.createElement('style');
@@ -1066,26 +1075,40 @@ Object.entries(exposed).forEach(([name, fn]) => {
     html, body { overflow-x: hidden; width: 100%; position: relative; }
     .container, #main-content { max-width: 100%; overflow-x: hidden; padding-left: 0.5rem; padding-right: 0.5rem; }
 
-    /* هواتف: 3 منتجات في الصف وتقليل الأحجام لتناسب المساحة */
+    /* هواتف: 2 منتجات في الصف (طلب المستخدم) وتحسين الأحجام */
     @media (max-width: 640px) {
       #products-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-        padding: 4px !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        padding: 8px !important;
       }
-      #products-grid > div { padding: 6px !important; border-radius: 1rem !important; }
-      #products-grid h4 { font-size: 11px !important; min-height: 2.2rem !important; }
-      #products-grid .relative.h-28 { height: 80px !important; }
+      #products-grid > div { padding: 10px !important; border-radius: 1.25rem !important; }
+      #products-grid h4 { font-size: 13px !important; min-height: 2.8rem !important; margin-bottom: 8px !important; }
+      #products-grid .relative.h-36 { height: 120px !important; }
+      #products-grid .p-3 { padding: 10px !important; }
+      
+      /* تحسين حجم الأزرار والسعر للموبايل */
+      .price-block button { padding: 4px 6px !important; font-size: 9px !important; }
+      .add-to-cart-btn { padding: 10px !important; }
+      .add-to-cart-btn i { width: 1.25rem !important; height: 1.25rem !important; }
       
       /* ضبط لوحة التحكم للهواتف */
       .is-admin main { padding: 10px !important; }
-      #admin-p-list, #admin-o-list { gap: 10px !important; }
+      #admin-p-list, #admin-o-list { gap: 12px !important; }
+      
+      /* جعل تبويبات الإدارة قابلة للسحب لليمين واليسار */
+      [id^="admin-tab-"] {
+        min-width: 85px !important;
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+      }
     }
 
-    /* شاشات كبيرة: 5 منتجات في الصف */
+    /* شاشات كبيرة: 5 منتجات في الصف لزيادة الكفاءة */
     @media (min-width: 1024px) {
       #products-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 20px !important;
       }
     }
   `;

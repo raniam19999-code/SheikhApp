@@ -971,7 +971,7 @@
             </div>
 
             <!-- Admin Tabs -->
-            <div class="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
+            <div class="flex overflow-x-auto no-scrollbar gap-1 bg-slate-100 p-1.5 rounded-2xl shadow-inner mb-4">
               <button
                 onclick="showAdminSubTab('p')"
                 id="admin-tab-p"
@@ -1046,7 +1046,7 @@
 
             <div
               id="admin-p-list"
-              class="space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden"
             >
               <div
                 class="col-span-full bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 text-center"
@@ -1056,7 +1056,7 @@
                 </p>
               </div>
             </div>
-            <div id="admin-c-list" class="space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3 hidden"></div>
+            <div id="admin-c-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden"></div>
             <div id="admin-o-list" class="space-y-4 hidden"></div>
             <div id="admin-i-list" class="space-y-4 hidden"></div>
             <div id="admin-import-list" class="space-y-4 hidden"></div>
