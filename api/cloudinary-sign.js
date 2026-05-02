@@ -14,7 +14,6 @@
  * الرد:   { signature, timestamp, apiKey, cloudName, folder }
  */
 
-require("dotenv").config();
 const cloudinary = require("cloudinary").v2;
 
 cloudinary.config({

@@ -151,6 +151,21 @@ export function renderCart() {
     </div>`;
   }).join("");
   document.getElementById("total").innerHTML = `${total.toFixed(2)} <span class="text-sm">ج.م</span>`;
+
+  // إظهار تنبيه في حالة عدم الوصول للحد الأدنى (20,000 ج.م)
+  let minNote = document.getElementById("cart-min-order-warning");
+  if (total < 20000) {
+    if (!minNote) {
+      minNote = document.createElement("div");
+      minNote.id = "cart-min-order-warning";
+      minNote.className = "mt-4 p-3 bg-red-50 border border-red-100 rounded-2xl text-[11px] text-red-600 font-bold flex items-center gap-2 animate-pulse";
+      document.getElementById("cart-summary").insertBefore(minNote, document.getElementById("cart-summary").lastElementChild);
+    }
+    minNote.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4"></i> لازم تكمل حتى الحد الأدنى 20 ألف جنيه (باقي ${ (20000 - total).toFixed(2) } ج.م)`;
+  } else {
+    if (minNote) minNote.remove();
+  }
+
   lucide.createIcons();
 }
 

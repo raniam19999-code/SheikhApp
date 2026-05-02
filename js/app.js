@@ -158,7 +158,14 @@ function listenToProducts() {
   return window.firestoreUtils.onSnapshot(
     q,
     (snap) => {
-      window.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const allProducts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      
+      // للمستخدم العادي: نعرض فقط المنتجات المعتمدة (isApproved ليس false)
+      if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+        window.products = allProducts.filter(p => p.isApproved !== false);
+      } else {
+        window.products = allProducts;
+      }
 
       if (typeof window.renderProducts === "function")
         window.renderProducts(window.products);
@@ -297,7 +304,7 @@ window.processImageUrl = async function (url, previewId, hiddenInputId) {
       ctx.drawImage(img, 0, 0, width, height);
 
       try {
-        const dataURL = canvas.toDataURL("image/jpeg", 0.7);
+        const dataURL = canvas.toDataURL("image/webp", 0.85);
         previewImg.src = dataURL;
         previewImg.classList.remove("hidden");
         if (placeholder) placeholder.classList.add("hidden");
@@ -346,7 +353,7 @@ window.handleImageUpload = function (
       canvas.height = height;
       canvas.getContext("2d").drawImage(img, 0, 0, width, height);
 
-      const base64 = canvas.toDataURL("image/jpeg", 0.7);
+      const base64 = canvas.toDataURL("image/webp", 0.85);
       document.getElementById(previewId).src = base64;
       document.getElementById(previewId).classList.remove("hidden");
       if (

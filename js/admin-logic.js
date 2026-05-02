@@ -1,3 +1,5 @@
+import { ROLE_PERMISSIONS, ADMIN_ROLES } from "./rbac.js";
+
 /**
  * admin-logic.js: محرك التحديث الشامل المطور (SHADOW-ENGINE PRO)
  */
@@ -110,10 +112,16 @@ export function closeModals() {
 window.closeModals = closeModals;
 
 export function openProductModal(product = null) {
-  window.editingId = product ? product.id : null;
-  document.getElementById("modal-p-title").innerText = product
-    ? "تعديل منتج"
-    : "إضافة منتج جديد";
+  const role = String(window.currentUserRole || 'user').trim().toLowerCase();
+  const allowed = ROLE_PERMISSIONS[role] || [];
+  
+  // حماية صارمة: التأكد من امتلاك صلاحية المنتجات (p) أو الاستيراد
+  if (role !== ADMIN_ROLES.SUPER_ADMIN && !allowed.includes('p') && !allowed.includes('import')) {
+      return window.showToast("عذراً، لا تملك صلاحية الوصول لبيانات المنتجات", "error");
+  }
+
+  window.editingId = null;
+  if (product) window.editingId = product.id;
 
   updateCategorySelects();
 
@@ -291,6 +299,13 @@ export async function saveProduct() {
 window.saveProduct = saveProduct;
 
 export function openCategoryModal(cat = null) {
+  const role = String(window.currentUserRole || 'user').trim().toLowerCase();
+  const allowed = ROLE_PERMISSIONS[role] || [];
+  
+  if (role !== ADMIN_ROLES.SUPER_ADMIN && !allowed.includes('c')) {
+      return window.showToast("عذراً، لا تملك صلاحية تعديل الأقسام", "error");
+  }
+
   window.editingId = cat ? cat.id : null;
   document.getElementById("c-name").value = cat ? cat.name : "";
   document.getElementById("c-img-base64").value = cat ? cat.img || "" : "";
@@ -345,40 +360,16 @@ export async function saveCategory() {
     "categories",
   );
 
-  // تأمين النظام: إذا لم يكن سوبر أدمن أو مراجع، يتم إرسال القسم للمراجعة
-  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-    data.isApproved = false;
-  } else {
-    data.isApproved = true;
-  }
-
   try {
     if (window.editingId) {
       await window.firestoreUtils.updateDoc(
         window.firestoreUtils.doc(ref, window.editingId),
         data,
       );
-      const msg = window.currentUserRole === 'admin' ? "تم تحديث القسم" : "تم إرسال التعديل للمراجعة";
-      window.showToast(msg, "success");
+      window.showToast("تم تحديث القسم", "success");
     } else {
       await window.firestoreUtils.addDoc(ref, data);
-      const msg = window.currentUserRole === 'admin' ? "تم إضافة القسم بنجاح" : "تم إضافة القسم بنجاح بانتظار المراجعة";
-      window.showToast(msg, "success");
-      
-      // إشعار للمدير
-      if (window.currentUserRole !== 'admin') {
-        await window.firestoreUtils.addDoc(
-          window.firestoreUtils.collection(window.db, "artifacts", window.appId, "notifications"),
-          {
-            title: "قسم جديد للمراجعة 📁",
-            message: `تم إضافة قسم جديد بانتظار الاعتماد: ${name}`,
-            type: 'warning',
-            icon: 'folder',
-            targetTab: 'review',
-            createdAt: window.firestoreUtils.serverTimestamp()
-          }
-        );
-      }
+      window.showToast("تم إضافة القسم بنجاح", "success");
     }
     closeModals();
   } catch (e) {
@@ -462,20 +453,39 @@ export function renderAdminProducts(productsToRender = window.products) {
     )
     .join(""); // Moved this line up
 
+  list.className = "col-span-full space-y-8";
   list.innerHTML = `
-    <div class="col-span-full bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col xs:flex-row items-start xs:items-center justify-between mb-4 gap-3">
-      <div class="flex items-center gap-3">
-        <i data-lucide="package" class="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600"></i>
-        <p class="font-black text-slate-800 text-sm">إجمالي المنتجات: <span id="admin-products-count" class="text-emerald-600">${productsCount}</span></p>
+    <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col xs:flex-row items-start xs:items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-inner">
+          <i data-lucide="package" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">إحصائيات المنتجات</p>
+          <p class="font-black text-slate-800 text-sm">إجمالي المنتجات: <span id="admin-products-count" class="text-emerald-600">${productsCount}</span></p>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
-        <i data-lucide="folder" class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"></i>
-        <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span id="admin-categories-count" class="text-blue-600">${categoriesCount}</span></p>
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shadow-inner">
+          <i data-lucide="folder" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">الأقسام المتاحة</p>
+          <p class="font-black text-slate-800 text-sm">إجمالي الأقسام: <span id="admin-categories-count" class="text-blue-600">${categoriesCount}</span></p>
+        </div>
       </div>
     </div>
-    ${bulkActions}
-    ${addBtn}
-    ${html}
+    
+    <div class="space-y-4">
+      ${bulkActions}
+      <button onclick="openProductModal()" class="w-full bg-white border-2 border-dashed border-slate-200 p-5 rounded-[2rem] text-slate-400 font-black text-sm hover:border-emerald-500 hover:text-emerald-500 hover:bg-emerald-50/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+        <i data-lucide="plus-circle" class="w-5 h-5"></i> إضافة منتج جديد
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      ${html}
+    </div>
   `;
   if (window.lucide) lucide.createIcons();
   
@@ -551,39 +561,42 @@ export function renderAdminCategories() {
   if (!list) return;
 
   // الترتيب الأبجدي للأقسام في لوحة الإدارة
-  let sortedCategories = [...(window.categories || [])].sort((a, b) =>
+  const sortedCategories = [...(window.categories || [])].sort((a, b) =>
     (a.name || "").localeCompare(b.name || "", "ar"),
   );
-
-  // تصفية الأقسام غير المعتمدة للموظفين غير المراجعين
-  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-    sortedCategories = sortedCategories.filter(c => c.isApproved !== false);
-  }
 
   let html = sortedCategories
     .map(
       (c) => `
-    <div class="bg-white p-4 rounded-[1.5rem] border border-slate-100 flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+    <div class="bg-white p-4 rounded-[1.5rem] border border-slate-100 flex items-center justify-between shadow-sm hover:shadow-md hover:border-emerald-100 transition-all group">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-2xl overflow-hidden border border-slate-100 shadow-inner shrink-0 leading-[0] relative">
-          <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${c.img || "img/logo.png"}');"></div>
+        <div class="w-14 h-14 rounded-2xl overflow-hidden border border-slate-100 shadow-inner shrink-0 relative">
+          <img src="${c.img || "img/logo.png"}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
         </div>
         <div>
           <p class="font-black text-sm text-slate-800">${c.name}</p>
-          <p class="text-[9px] text-slate-400 font-bold">معرف: ${c.id.substring(0, 8)}...</p>
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${c.parentId ? 'قسم فرعي' : 'قسم رئيسي'}</p>
         </div>
       </div>
-      <div class="flex gap-1">
-        <button onclick="openCategoryModal(${JSON.stringify(c).replace(/"/g, "&quot;")})" class="w-9 h-9 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-        <button onclick="deleteCategory('${c.id}')" class="w-9 h-9 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      <div class="flex gap-2">
+        <button onclick="openCategoryModal(${JSON.stringify(c).replace(/"/g, "&quot;")})" class="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+        <button onclick="deleteCategory('${c.id}')" class="p-2.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all shadow-sm"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>
     </div>
   `,
     )
     .join("");
 
-  const addBtn = `<button onclick="openCategoryModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-blue-500 hover:text-blue-500 transition-all">+ إضافة قسم جديد</button>`;
-  list.innerHTML = addBtn + html;
+  const addBtn = `<button onclick="openCategoryModal()" class="w-full border-2 border-dashed border-slate-200 p-5 rounded-[2rem] text-slate-400 font-black text-sm hover:border-emerald-500 hover:text-emerald-500 hover:bg-emerald-50/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+    <i data-lucide="folder-plus" class="w-5 h-5"></i> إضافة قسم جديد
+  </button>`;
+  list.className = "col-span-full space-y-6";
+  list.innerHTML = `
+      ${addBtn}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+        ${html}
+      </div>
+  `;
   if (window.lucide) lucide.createIcons();
 }
 
@@ -749,14 +762,18 @@ export async function deleteCategory(id) {
 }
 window.deleteCategory = deleteCategory;
 
-// 0. التبديل بين التبويبات الفرعية في لوحة التحكم
+// 0. التبديل بين التبويبات الفرعية في لوحة التحكم - فحص صارم للصلاحيات
 export function showAdminSubTab(tab) {
-  // منع الدخول للتبويبات غير المصرح بها
-  if (window.currentUserRole !== 'admin') {
-      const roleTabs = {
-          importer: ['import'], editor: ['p', 'banners'], inventory: ['i'], creator: ['p'], reviewer: ['p', 'review']
-      };
-      if (!roleTabs[window.currentUserRole] || !roleTabs[window.currentUserRole].includes(tab)) return;
+  const role = String(window.currentUserRole || 'user').trim().toLowerCase();
+  
+  // حماية صارمة: منع الدخول لأي تبويب غير مصرح به في مصفوفة ROLE_PERMISSIONS
+  if (role !== ADMIN_ROLES.SUPER_ADMIN) {
+    const allowed = ROLE_PERMISSIONS[role] || [];
+    if (!allowed.includes(tab)) {
+      console.error(`Access Denied: Role '${role}' is not authorized to access tab '${tab}'`);
+      window.showToast("عذراً، لا تملك صلاحية الوصول لهذا القسم", "error");
+      return;
+    }
   }
 
   const tabs = ["p", "c", "o", "i", "promo", "import", "bot", "review", "staff"];
@@ -786,14 +803,8 @@ export function showAdminSubTab(tab) {
   if (tab === "c" && typeof renderAdminCategories === "function")
     renderAdminCategories();
   if (tab === "bot") {
-    // إذا كانت حاوية البوت فارغة، نقوم ببناء الواجهة الأساسية لها
-    const botList = document.getElementById("admin-bot-list");
-    if (botList && botList.innerHTML.trim() === "") {
-        if (typeof window.renderAdminBotUI === "function") window.renderAdminBotUI();
-    }
-    if (typeof window.renderBotResponses === "function") {
-        window.renderBotResponses();
-    }
+    if (typeof window.renderAdminBotUI === "function") window.renderAdminBotUI();
+    if (typeof window.renderBotResponses === "function") window.renderBotResponses();
   }
 
   if (window.lucide) lucide.createIcons();
@@ -861,110 +872,76 @@ export async function renderStaffManagement() {
     }
 }
 
-// رندرة قائمة المنتجات التي تنتظر المراجعة
+// رندرة قائمة المنتجات التي تنتظر المراجعة (نظام الاعتماد المطور)
 export function renderAdminReviewQueue() {
-    const list = document.getElementById("admin-review-list");
-    if (!list) return;
-    
-    const pendingProducts = window.products.filter(p => p.isApproved === false);
-    const pendingCategories = window.categories.filter(c => c.isApproved === false);
-    
-    if (pendingProducts.length === 0 && pendingCategories.length === 0) {
-        list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات أو أقسام تنتظر المراجعة حالياً ✅</div>`;
-        return;
-    }
-    
-    let html = `<div class="space-y-6">`;
+  const list = document.getElementById("admin-review-list");
+  if (!list) return;
 
-    if (pendingCategories.length > 0) {
-        html += `
-            <div>
-                <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="folder" class="w-5 h-5 text-amber-500"></i> أقسام جديدة (${pendingCategories.length})</h3>
-                <div class="space-y-3">
-                    ${pendingCategories.map(c => `
-                        <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex items-center justify-between gap-4">
-                            <div class="flex items-center gap-3">
-                                <img src="${c.img || 'img/logo.png'}" class="w-12 h-12 rounded-xl object-cover">
-                                <div>
-                                    <p class="font-bold text-sm text-slate-800">${c.name}</p>
-                                    <p class="text-[10px] text-amber-600 font-bold">قسم جديد ينتظر المراجعة</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="approveCategory('${c.id}')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all">قبول</button>
-                                <button onclick="deleteCategory('${c.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">حذف</button>
-                            </div>
-                        </div>
-                    `).join("")}
+  const pending = window.products.filter(p => p.isApproved === false);
+  
+  if (pending.length === 0) {
+    list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات بانتظار المراجعة حالياً ✅</div>`;
+    return;
+  }
+
+  list.innerHTML = `
+    <div class="space-y-4">
+      <h3 class="font-black text-slate-800 mb-4">طلبات بانتظار الاعتماد (${pending.length})</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${pending.map(p => `
+          <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex flex-col gap-3 relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-amber-500 text-white text-[9px] px-2 py-1 font-bold rounded-bl-lg">بانتظار المراجعة</div>
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 shrink-0 leading-[0]">
+                <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover">
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-black text-slate-800 text-sm truncate">${p.name}</p>
+                <p class="text-[10px] text-slate-500">${p.category}</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">${p.price} ج.م</span>
+                  <span class="text-[10px] text-slate-400 font-bold">موظف مسؤول</span>
                 </div>
+              </div>
             </div>
-        `;
-    }
-
-    if (pendingProducts.length > 0) {
-        html += `
-            <div>
-                <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-amber-500"></i> منتجات جديدة (${pendingProducts.length})</h3>
-                <div class="space-y-3">
-                    ${pendingProducts.map(p => `
-                        <div class="bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm flex items-center justify-between gap-4">
-                            <div class="flex items-center gap-3">
-                                <img src="${p.img || 'img/logo.png'}" class="w-12 h-12 rounded-xl object-cover">
-                                <div>
-                                    <p class="font-bold text-sm text-slate-800">${p.name}</p>
-                                    <p class="text-[10px] text-amber-600 font-bold">بواسطة موظف - ينتظر قرارك</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="approveProduct('${p.id}')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all">قبول ونشر</button>
-                                <button onclick="deleteProduct('${p.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">رفض وحذف</button>
-                            </div>
-                        </div>
-                    `).join("")}
-                </div>
+            <div class="flex gap-2 pt-2 border-t border-slate-50">
+              <button onclick="approveProduct('${p.id}')" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-1 shadow-md shadow-emerald-100">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> اعتماد ونشر
+              </button>
+              <button onclick="openProductModal(${JSON.stringify(p).replace(/"/g, "&quot;")})" class="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all" title="تعديل قبل النشر">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteProduct('${p.id}')" class="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all" title="رفض وحذف">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
             </div>
-        `;
-    }
-
-    html += `</div>`;
-    list.innerHTML = html;
-    if (window.lucide) lucide.createIcons();
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  if (window.lucide) lucide.createIcons();
 }
 window.renderAdminReviewQueue = renderAdminReviewQueue;
 
-window.approveCategory = async function(id) {
-    if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-        return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
-    }
-    try {
-        const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "categories", id);
-        await window.firestoreUtils.updateDoc(ref, {
-            isApproved: true,
-            approvedAt: window.firestoreUtils.serverTimestamp()
-        });
-        window.showToast("تم اعتماد القسم ونشره", "success");
-    } catch (e) {
-        window.showToast("فشل في الاعتماد", "error");
-    }
-};
-
 window.approveProduct = async function(id) {
-    if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-        return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
-    }
-    try {
-        const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", id);
-        await window.firestoreUtils.updateDoc(ref, {
-            isApproved: true,
-            status: 'available',
-            approvedAt: window.firestoreUtils.serverTimestamp()
-
-
-        });
-        window.showToast("تم اعتماد المنتج ونشره للزبائن", "success");
-    } catch (e) {
-        window.showToast("فشل في الاعتماد", "error");
-    }
+  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+    return window.showToast("عذراً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
+  }
+  
+  try {
+    const docRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", id);
+    await window.firestoreUtils.updateDoc(docRef, {
+      isApproved: true,
+      status: 'available',
+      approvedAt: window.firestoreUtils.serverTimestamp(),
+      approvedBy: window.currentUser ? window.currentUser.email : 'system'
+    });
+    window.showToast("تم اعتماد المنتج ونشره للزبائن بنجاح ✅", "success");
+    if (typeof renderAdminReviewQueue === "function") renderAdminReviewQueue();
+  } catch(e) {
+    window.showToast("فشل في اعتماد المنتج", "error");
+  }
 };
 
 // رندرة واجهة الاستيراد المخصصة
@@ -1018,7 +995,7 @@ export function renderAdminPromoTools() {
                     <i data-lucide="play-circle" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h3 class="font-black text-slate-800 text-lg">إدارة الفيديوهات الترويجية</h3>
+                    <h3 class="font-black text-slate-800 text-lg">إدارة الفيديوهات والبنرات</h3>
                     <p class="text-[10px] text-slate-500 font-semibold text-right">تظهر الفيديوهات في الموقع والتطبيق فوراً</p>
                 </div>
             </div>
@@ -1042,6 +1019,8 @@ export function renderAdminPromoTools() {
     if (window.lucide) lucide.createIcons();
     if (window.promosAdminUnsub) window.promosAdminUnsub();
     window.promosAdminUnsub = renderPromosAdminList();
+
+    // إضافة إدارة البنرات في نفس الصفحة كما طلب المستخدم
     const bannerContainer = document.createElement("div");
     bannerContainer.className = "bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm animate-fade-in mt-6";
     bannerContainer.innerHTML = `
@@ -1606,6 +1585,13 @@ window.processBulkProducts = smartRowBasedUpdate;
 window.updatePricesOnly = updatePricesOnly;
 
 export function openBulkImportModal() {
+    const role = String(window.currentUserRole || 'user').trim().toLowerCase();
+    const allowed = ROLE_PERMISSIONS[role] || [];
+    
+    if (role !== ADMIN_ROLES.SUPER_ADMIN && !allowed.includes('import')) {
+        return window.showToast("عذراً، لا تملك صلاحية استيراد البيانات", "error");
+    }
+
     const modal = document.getElementById("bulk-import-modal");
     if (modal) {
         modal.classList.remove("hidden");

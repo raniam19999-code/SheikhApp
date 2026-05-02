@@ -10,7 +10,8 @@
   --primary-soft: #ecfdf5;
   --accent: #f59e0b;
   --accent-strong: #d97706;
-  --shadow-base: rgba(27, 67, 50, 0.12);
+  --shadow-base: rgba(27, 67, 50, 0.08);
+  --dashboard-gap: 2.5rem;
 }
 
 body {
@@ -49,10 +50,28 @@ body {
   scroll-snap-align: start;
 }
 
+/* Dashboard & Section Spacing */
+.dashboard-section {
+  margin-bottom: var(--dashboard-gap);
+}
+.dashboard-card {
+  background: white;
+  border-radius: 2rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
+}
+@media (min-width: 640px) {
+  .dashboard-card {
+    padding: 2rem;
+  }
+}
+
+/* Smooth transitions */
 .tab-content {
   display: none;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .tab-content.active {
   display: block;

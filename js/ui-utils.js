@@ -3,12 +3,18 @@
 ======================================================== */
 
 // تعريف صوت التنبيه "Pop" الخفيف
-const notificationSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3");
+const notificationSound = new Audio(
+  "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3",
+);
 
-window.playNotificationSound = function() {
+window.playNotificationSound = function () {
   try {
     notificationSound.currentTime = 0;
-    notificationSound.play().catch(e => console.warn("Sound blocked by browser until user interaction"));
+    notificationSound
+      .play()
+      .catch((e) =>
+        console.warn("Sound blocked by browser until user interaction"),
+      );
   } catch (e) {}
 };
 
@@ -24,7 +30,10 @@ function safeCreateIcons() {
 }
 
 export function showTab(id) {
-  if (id === "checkout" && (!window.currentUser || window.currentUser.isAnonymous)) {
+  if (
+    id === "checkout" &&
+    (!window.currentUser || window.currentUser.isAnonymous)
+  ) {
     if (window.showLoginModal) {
       window.showLoginModal();
       return;
@@ -130,13 +139,22 @@ export function createNotification(
   };
   window.notifications.unshift(notification);
   if (window.notifications.length > 10) window.notifications.pop();
-  
+
   if (window.playNotificationSound) window.playNotificationSound();
   updateNotificationPanel();
   updateNotificationBadge();
 }
 
+function cleanupOldNotifications() {
+  if (!window.notifications || window.notifications.length === 0) return;
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  // نقوم بفلترة المصفوفة لحذف أي إشعار تم إنشاؤه قبل أكثر من أسبوع
+  // نعتمد على n.id لأنه يحتوي على طابع زمني دقيق وقت الإنشاء (Date.now)
+  window.notifications = window.notifications.filter((n) => n.id > oneWeekAgo);
+}
+
 export function updateNotificationPanel() {
+  cleanupOldNotifications();
   const list = document.getElementById("notifications-list");
   if (!list) return;
   if (window.notifications.length === 0) {
@@ -162,28 +180,68 @@ export function updateNotificationPanel() {
 }
 
 export function updateNotificationBadge() {
+  cleanupOldNotifications();
   const badge = document.getElementById("header-notification-badge");
   const unread = window.notifications.filter((n) => !n.read).length;
   badge.classList.toggle("hidden", unread === 0);
   badge.innerText = unread > 9 ? "+9" : unread;
 }
 
+function handleNotifyOutsideClick(e) {
+  const panel = document.getElementById("notification-panel");
+  const bell = document.getElementById("notification-bell");
+
+  // تفكير أعمق: نتحقق إذا كانت النقرة خارج حاوية الإشعارات وخارج زر الجرس (بما فيه الأيقونة)
+  const isOutsidePanel = panel && !panel.contains(e.target);
+  const isOutsideBell = bell && !bell.contains(e.target);
+
+  if (isOutsidePanel && isOutsideBell) {
+    closeNotificationPanel();
+  }
+}
+
+let lastNotifyToggle = 0;
 export function toggleNotificationPanel(event) {
-  if (event) event.stopPropagation();
+  const now = Date.now();
+  // درع زمني لمنع أحداث الشبح (Ghost Clicks) في الموبايل
+  if (now - lastNotifyToggle < 300) return;
+  lastNotifyToggle = now;
+
+  if (event) {
+    event.stopPropagation();
+    if (event.cancelable) event.preventDefault();
+  }
+
   const panel = document.getElementById("notification-panel");
   if (!panel) return;
 
   const isHidden = panel.classList.contains("hidden");
-  
+
   if (isHidden) {
     panel.classList.remove("hidden");
-    updateNotificationPanel(); // تم نقل هذه الدالة لضمان أن النافذة تفتح أولاً ثم يتم تحديث محتواها
+    updateNotificationPanel();
     safeCreateIcons();
+
+    // الاحترافية هنا: نستخدم setTimeout(0) لنقل إضافة المستمع إلى دورة الحدث القادمة
+    // هذا يضمن أن المتصفح قد انتهى تماماً من معالجة نقرة الفتح قبل البدء في مراقبة الإغلاق
+    setTimeout(() => {
+      document.addEventListener("click", handleNotifyOutsideClick);
+    }, 0);
   } else {
-    if (window.notifications) window.notifications.forEach(n => n.read = true);
-    updateNotificationBadge();
-    panel.classList.add("hidden");
+    closeNotificationPanel();
   }
+}
+
+export function closeNotificationPanel() {
+  const panel = document.getElementById("notification-panel");
+  if (!panel || panel.classList.contains("hidden")) return;
+
+  if (window.notifications) {
+    window.notifications.forEach((n) => (n.read = true));
+  }
+  updateNotificationBadge();
+  panel.classList.add("hidden");
+  document.removeEventListener("click", handleNotifyOutsideClick);
 }
 
 export function handleNotificationAction(id) {
@@ -258,20 +316,19 @@ export function navigateBack() {
 }
 
 export function togglePaymentUI() {
-  const method = document.querySelector(
-    'input[name="payment-method"]:checked',
-  )?.value || 'cash';
+  const method =
+    document.querySelector('input[name="payment-method"]:checked')?.value ||
+    "cash";
 
   // إظهار/إخفاء لافتة Paymob
   const visaForm = document.getElementById("visa-form");
   if (visaForm) visaForm.classList.toggle("hidden", method !== "visa");
 
   // تحديث نص زر الإتمام
-  const btnText = document.getElementById('btn-place-order-text');
+  const btnText = document.getElementById("btn-place-order-text");
   if (btnText) {
-    btnText.textContent = method === 'visa'
-      ? 'إتمام الطلب والدفع الآن'
-      : 'إتمام الطلب الآن';
+    btnText.textContent =
+      method === "visa" ? "إتمام الطلب والدفع الآن" : "إتمام الطلب الآن";
   }
 
   safeCreateIcons();
@@ -303,15 +360,16 @@ export function formatExp(input) {
 export function showProgress(id, title, total) {
   const container = document.getElementById("notification-container");
   if (!container) return;
-  
+
   let progressDiv = document.getElementById(`progress-${id}`);
   if (!progressDiv) {
     progressDiv = document.createElement("div");
     progressDiv.id = `progress-${id}`;
-    progressDiv.className = "bg-white p-5 rounded-[2rem] shadow-2xl border border-emerald-100 w-80 pointer-events-auto animate-fade-in-up flex flex-col gap-3 mb-3 transition-all duration-300";
+    progressDiv.className =
+      "bg-white p-5 rounded-[2rem] shadow-2xl border border-emerald-100 w-80 pointer-events-auto animate-fade-in-up flex flex-col gap-3 mb-3 transition-all duration-300";
     container.appendChild(progressDiv);
   }
-  
+
   progressDiv.innerHTML = `
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-inner">
