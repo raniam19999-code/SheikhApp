@@ -435,7 +435,7 @@ export function renderAdminProducts(productsToRender = window.products) {
           <img src="${p.img || "img/logo.png"}" class="w-full h-full object-cover">
         </div>
         <div class="min-w-0 flex-1 overflow-hidden">
-          <p class="font-bold text-xs sm:text-sm text-slate-800 truncate break-words">${p.name}</p>
+          <p class="font-bold text-[11px] sm:text-[13px] text-slate-800 break-words leading-tight">${p.name}</p>
           <div class="flex flex-wrap items-center gap-1 mt-1">
             <span class="text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded">${p.category}</span>
             <span class="text-[9px] text-slate-400 bg-slate-100 px-1 rounded font-mono">كود: ${p.sku || "—"}</span>
@@ -1149,6 +1149,7 @@ export async function handleBulkFileUpload(event) {
 
   // حفظ البيانات في المتغير العالمي ليتمكن نظام "الإضافة السريعة" من الوصول إليها
   window.lastUploadedRows = rows;
+  window.showToast(`📊 تم اكتشاف ${rows.length} سطر في الملف جاري التحليل...`, "info", 4000);
 
   if (
     confirm(
@@ -1195,8 +1196,8 @@ window.handleBulkImportFileUpload = handleBulkImportFileUpload;
 export async function smartRowBasedUpdate(rows) {
   const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
   
-  const BATCH_SIZE = 400; // تم الإرجاع لـ 400 كما طلبت لضمان الدقة العالية
-  const DELAY_MS = 1000; // إبطاء طفيف لضمان ثبات العمليات الضخمة
+  const BATCH_SIZE = 100; // تقليل الحجم لضمان استقرار الرفع للأعداد الكبيرة
+  const DELAY_MS = 400; // تسريع الفاصل الزمني قليلاً مع الحفاظ على الأمان
 
   let batch = window.firestoreUtils.writeBatch(window.db);
   let opCount = 0, updated = 0, created = 0, skipped = 0, batchCount = 0;
@@ -1206,16 +1207,13 @@ export async function smartRowBasedUpdate(rows) {
   window.showProgress(progressId, 'جاري معالجة ملف المنتجات وتحديثها', rows.length);
 
 
-  // بناء الفهرس الذكي للبحث السريع
+  // بناء الفهرس الذكي للبحث السريع - استخدام الاسم العادي مع SKU لتقليل التصادم
   const productMap = new Map();
   (window.products || []).forEach(p => {
-    const nKey = superClean(normalizeArabic(p.name));
-    const sKey = superClean(p.sku);
+    const nKey = normalizeArabic(p.name); // مطابقة أدق بالاسم العربي الموحد
+    const sKey = String(p.sku || "").trim().toLowerCase();
     if (nKey) productMap.set("n_" + nKey, p);
-    if (sKey) {
-      productMap.set("s_" + sKey, p);
-      productMap.set("s_" + sKey.replace(/^0+/, ""), p); 
-    }
+    if (sKey) productMap.set("s_" + sKey, p);
   });
 
   const commitBatch = async () => {
@@ -1244,37 +1242,37 @@ export async function smartRowBasedUpdate(rows) {
       const row = {};
       Object.keys(rawRow).forEach(k => { row[k.trim()] = rawRow[k]; });
 
-      // استخراج البيانات بعد تنظيف المفاتيح
-      const sku = String(row["كودالصنف"] || row["باركود"] || row["الكود"] || findValByParts(row, ["كودالصنف", "باركود", "كود", "sku"]) || "").trim();
-      const name = String(row["الصنف"] || row["اسم الصنف"] || findValByParts(row, ["الصنف", "اسم الصنف"]) || "").trim();
+      // استخراج البيانات بعد تنظيف المفاتيح - دعم مسميات فائقة المرونة
+      const sku = String(row["كودالصنف"] || row["باركود"] || row["الكود"] || row["sku"] || row["code"] || row["barcode"] || findValByParts(row, ["كود", "باركود", "sku", "code", "barcode", "رمز", "رقم", "مسلسل", "serial"]) || "").trim();
+      const name = String(row["الصنف"] || row["اسم الصنف"] || row["الاسم"] || row["المنتج"] || row["name"] || row["item"] || row["description"] || findValByParts(row, ["صنف", "اسم", "منتج", "name", "item", "description", "بيان", "مسمى", "نوع"]) || "").trim();
 
       // === استخراج اسم المخزن (نصي) ===
-      const warehouseName = String(row["مخزن"] || "").trim();
+      const warehouseName = String(row["مخزن"] || row["المخزن"] || findValByParts(row, ["مخزن", "المخزن", "warehouse", "store"]) || "مخزن رئيسي").trim();
 
       // === استخراج الكمية: يدعم مسميات متعددة بالضبط أو بمسافات (تم التنظيف أعلاه) ===
       // الترتيب: أسماء الشيت الفعلي أولاً ثم البدائل الاحتياطية
-      let rawQty = row["رصيد المخزون"] ?? row["رصيد المخزن"] ?? row["الكميه"] ?? row["الكمية"];
+      let rawQty = row["رصيد المخزون"] ?? row["رصيد المخزن"] ?? row["الكميه"] ?? row["الكمية"] ?? row["المخزون"];
       if (rawQty === undefined || rawQty === null || rawQty === "") {
-        rawQty = findValByParts(row, ["رصيد المخزون", "رصيد المخزن", "الكميه", "الكمية", "رصيد"]);
+        rawQty = findValByParts(row, ["رصيد المخزون", "رصيد المخزن", "الكميه", "الكمية", "رصيد", "مخزون", "كمية", "كميه", "qty", "quantity", "stock"]);
       }
       const qty = parseExcelNumber(rawQty);
 
       const categoryRaw = row["المجموعه"] || row["التصنيف"] || row["القسم"] || findValByParts(row, ["المجموعه", "التصنيف", "القسم"]);
       const category = categoryRaw ? String(categoryRaw).trim() : null;
       
-      const price = parseExcelNumber(row["سعر الجملة"] || row["السعر"] || row["سعر"] || findValByParts(row, ["سعر الجملة", "السعر", "سعر"]));
+      const price = parseExcelNumber(row["سعر الجملة"] || row["السعر"] || row["سعر"] || findValByParts(row, ["سعر الجملة", "السعر", "سعر", "جملة", "جمله", "price", "cost"]));
       const unit = "قطعة";
 
 
       // تخطي الصفوف الفارغة تماماً
       if (!name && !sku) { skipped++; continue; }
 
-      const nKey = superClean(normalizeArabic(name));
-      const sKey = superClean(sku);
+      const nKey = normalizeArabic(name);
+      const sKey = String(sku || "").trim().toLowerCase();
 
       // محاولة مطابقة الصنف مع الموجود في قاعدة البيانات
       let existing = null;
-      if (sKey) existing = productMap.get("s_" + sKey) || productMap.get("s_" + sKey.replace(/^0+/, ""));
+      if (sKey) existing = productMap.get("s_" + sKey);
       if (!existing && nKey) existing = productMap.get("n_" + nKey);
 
       if (existing) {
@@ -1282,15 +1280,21 @@ export async function smartRowBasedUpdate(rows) {
         const updates = {};
         let hasChanges = false;
 
-        // مقارنة السعر فقط
-        if (price > 0 && price !== Number(existing.price || 0)) {
+        // مقارنة السعر فقط - باستخدام الدقة العشرية لتجنب التحديثات الوهمية
+        const excelPrice = Number(price.toFixed(2));
+        const currentPrice = Number((existing.price || 0).toFixed(2));
+
+        if (price > 0 && excelPrice !== currentPrice) {
           updates.price = price;
           updates["prices.bag"] = price;
           hasChanges = true;
         }
 
         // مقارنة الكمية فقط
-        if (qty !== Number(existing.quantity || 0)) {
+        const excelQty = Number(qty.toFixed(2));
+        const currentQty = Number((existing.quantity || 0).toFixed(2));
+
+        if (excelQty !== currentQty) {
           updates.quantity = qty;
           updates.status = qty > 0 ? "available" : "out_of_stock";
           hasChanges = true;
@@ -1307,21 +1311,30 @@ export async function smartRowBasedUpdate(rows) {
         }
       } else {
         // إضافة صنف جديد كلياً
-        const newDocRef = window.firestoreUtils.doc(productsRef);
-        batch.set(newDocRef, {
+        const newDocId = window.firestoreUtils.doc(productsRef).id;
+        const newDocRef = window.firestoreUtils.doc(productsRef, newDocId);
+        
+        const newData = {
           name: name,
           sku: sku,
           price: price,
           quantity: qty,
           unitMeasurement: unit || "قطعة",
           category: category || "عام",
-          warehouseName: warehouseName || "مخزن رئيسي",
+          warehouseName: warehouseName,
           prices: { bag: price },
           availableUnits: { bag: true },
           status: qty > 0 ? "available" : "out_of_stock",
           createdAt: window.firestoreUtils.serverTimestamp(),
           updatedAt: window.firestoreUtils.serverTimestamp()
-        });
+        };
+
+        batch.set(newDocRef, newData);
+        
+        // تحديث الفهرس فوراً لمنع التكرار في نفس العملية
+        if (nKey) productMap.set("n_" + nKey, { id: newDocId, ...newData });
+        if (sKey) productMap.set("s_" + sKey, { id: newDocId, ...newData });
+        
         created++;
         opCount++;
       }
@@ -1636,7 +1649,7 @@ export function renderInventoryAudit() {
     html += `
       <tr class="hover:bg-slate-50/30 transition-colors">
         <td class="p-4 max-w-[150px]">
-          <p class="font-bold text-slate-800 truncate">${p.name}</p>
+          <p class="font-bold text-slate-800 leading-tight">${p.name}</p>
           <p class="text-[10px] text-slate-400 font-mono">SKU: ${p.sku||'-'}</p>
         </td>
         <td class="p-4 text-center">

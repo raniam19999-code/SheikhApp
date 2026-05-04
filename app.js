@@ -320,8 +320,9 @@ window.renderProducts = function (productsToRender = window.products) {
             </div>
 
             <div class="p-3 sm:p-4 flex flex-col flex-1 bg-white text-right">
-                <p class="text-[9px] text-[#1B4332] font-black mb-1 tracking-wide uppercase">${p.category || "عام"}</p>
-                <h4 class="font-bold text-slate-800 text-[12px] sm:text-[15px] mb-2.5 leading-tight group-hover:text-[#1B4332] transition-colors line-clamp-2 min-h-[2.5rem]">${p.name}</h4>
+                <p class="text-[9px] text-[#1B4332] font-black mb-0.5 tracking-wide uppercase">${p.category || "عام"}</p>
+                <h4 class="font-bold text-slate-800 text-[11px] sm:text-[13px] mb-1.5 leading-tight group-hover:text-[#1B4332] transition-colors">${p.name}</h4>
+                ${p.description ? `<p class="text-[10px] sm:text-[11px] text-slate-500 mb-2 leading-relaxed">${p.description}</p>` : ""}
                 
                 <div class="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100 mb-3 shadow-inner">
                     <div class="flex items-center justify-between text-[8px] sm:text-[10px] mb-2 pb-1.5 border-b border-slate-200">
@@ -1163,7 +1164,7 @@ Object.entries(exposed).forEach(([name, fn]) => {
         padding: 4px !important;
       }
       #products-grid > div { padding: 6px !important; border-radius: 1rem !important; }
-      #products-grid h4 { font-size: 11px !important; min-height: 2.2rem !important; }
+      #products-grid h4 { font-size: 10px !important; }
       #products-grid .relative.h-28 { height: 80px !important; }
       
       /* ضبط لوحة التحكم للهواتف */
