@@ -17,6 +17,8 @@ import {
   signOut,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore,
@@ -99,6 +101,8 @@ window.authUtils = {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
 };
 
 // دالة عالمية لتنظيف النصوص العربية لضمان مطابقة ذكية (تتجاهل الهمزات، التاء المربوطة، والتشكيل)
@@ -132,8 +136,8 @@ window.currentParentId = null; // تتبع مستوى الأقسام (رئيسي
 let loadAttempts = 0;
 
 // نظام التحميل التدريجي (Pagination)
-window.itemsPerPage = 20;
-window.currentRenderLimit = 20;
+window.itemsPerPage = 2;
+window.currentRenderLimit = 2;
 window.lastRenderedProducts = [];
 
 window.addEventListener("beforeinstallprompt", (e) => {
@@ -181,16 +185,6 @@ window.renderCategories = function () {
         `;
       })
       .join("");
-  } else {
-    // دخلنا في قسم رئيسي، الكل يختفي ونظهر فقط زر الرجوع في الشريط العلوي
-    html += `
-      <div onclick="window.navigateBackCategories()" class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group snap-item">
-        <div class="w-28 sm:w-32 h-28 sm:h-32 rounded-[2.5rem] bg-slate-50 shadow-md border-2 border-slate-100 flex items-center justify-center overflow-hidden group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-500 group-hover:-translate-y-2 transition-all duration-500">
-          <i data-lucide="arrow-right" class="w-10 h-10 group-hover:scale-125 transition-transform duration-500"></i>
-        </div>
-        <span class="text-[11px] sm:text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">رجوع للأقسام</span>
-      </div>
-    `;
   }
 
   container.className =
@@ -251,6 +245,11 @@ window.renderProducts = function (productsToRender = window.products) {
   const loadMoreBtn = document.getElementById("load-more-container");
   const pw = document.getElementById("products-wrapper");
   if (!grid) return;
+
+  // تصفية المنتجات غير المعتمدة للعملاء
+  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+    productsToRender = productsToRender.filter(p => p.isApproved !== false);
+  }
 
   if (pw) pw.classList.remove("hidden"); // دائماً نظهر شبكة المنتجات الآن، إما لفرعيات أو منتجات
   // حفظ النسخة الحالية للرجوع إليها عند ضغط "عرض المزيد"
@@ -320,9 +319,8 @@ window.renderProducts = function (productsToRender = window.products) {
             </div>
 
             <div class="p-3 sm:p-4 flex flex-col flex-1 bg-white text-right">
-                <p class="text-[9px] text-[#1B4332] font-black mb-0.5 tracking-wide uppercase">${p.category || "عام"}</p>
-                <h4 class="font-bold text-slate-800 text-[11px] sm:text-[13px] mb-1.5 leading-tight group-hover:text-[#1B4332] transition-colors">${p.name}</h4>
-                ${p.description ? `<p class="text-[10px] sm:text-[11px] text-slate-500 mb-2 leading-relaxed">${p.description}</p>` : ""}
+                <p class="text-[9px] text-[#1B4332] font-black mb-1 tracking-wide uppercase">${p.category || "عام"}</p>
+                <h4 class="font-bold text-slate-800 text-[12px] sm:text-[15px] mb-2.5 leading-tight group-hover:text-[#1B4332] transition-colors line-clamp-2 min-h-[2.5rem]">${p.name}</h4>
                 
                 <div class="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100 mb-3 shadow-inner">
                     <div class="flex items-center justify-between text-[8px] sm:text-[10px] mb-2 pb-1.5 border-b border-slate-200">
@@ -331,16 +329,12 @@ window.renderProducts = function (productsToRender = window.products) {
                     </div>
                     <div class="product-price-wrapper min-h-[40px] sm:min-h-[50px] flex flex-col items-center justify-center gap-1">
                         ${priceBlock}
-                        ${
-                          isAdmin
-                            ? `
-                        <div class="flex items-center gap-1 text-[11px] font-black ${isOutOfStock ? "text-red-600" : "text-slate-600"} mt-1">
+                        ${isAdmin ? `
+                        <div class="flex items-center gap-1 text-[11px] font-black ${isOutOfStock ? 'text-red-600' : 'text-slate-600'} mt-1">
                             <i data-lucide="package-check" class="w-3.5 h-3.5 opacity-70"></i>
                             <span>المخزن: ${Number(p.quantity || 0)}</span>
                         </div>
-                        `
-                            : ""
-                        }
+                        ` : ''}
                     </div>
                 </div>
 
@@ -413,9 +407,7 @@ window.renderSubcategoriesInMainGrid = function (parentId = null) {
   if (subCats.length === 0) {
     grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-400 font-bold">لا توجد أقسام فرعية هنا.</div>`;
   } else {
-    const isAdmin =
-      document.body.classList.contains("is-admin") ||
-      window.currentUserRole === "admin";
+    const isAdmin = document.body.classList.contains("is-admin") || window.currentUserRole === "admin";
 
     grid.innerHTML = subCats
       .map((sub) => {
@@ -574,91 +566,52 @@ function listenToProducts() {
 let promoAutoScrollInterval;
 
 function listenToPromotions() {
-  const ref = window.firestoreUtils.collection(
-    window.db,
-    "artifacts",
-    window.appId,
-    "public",
-    "data",
-    "promotions",
-  );
-  return window.firestoreUtils.onSnapshot(ref, (snap) => {
-    const promos = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const promos = snap.docs.map(doc => doc.data());
+        const container = document.getElementById("promos-client-container");
+        if (!container) return;
+        
+        if (promos.length === 0) {
+            container.classList.add("hidden");
+            return;
+        }
+        
+        container.classList.remove("hidden");
+        container.innerHTML = promos.map(p => `
+            <div class="min-w-[90vw] sm:min-w-[100%] h-[250px] sm:h-[450px] rounded-[2.5rem] sm:rounded-[3.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] bg-black relative group border border-white/10 snap-center transition-transform duration-500">
+                <iframe src="${p.embedUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-10 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none">
+                    <p class="text-white text-base sm:text-2xl font-black drop-shadow-2xl translate-y-2 group-hover:translate-y-0 transition-transform duration-300">${p.title}</p>
+                </div>
+            </div>
+        `).join("");
 
-    // 1. توزيع الفيديوهات في الصفحة الرئيسية (Home Feed)
-    const clientList = document.getElementById("promos-client-container");
-    if (clientList) {
-      if (promos.length > 0) {
-        clientList.classList.remove("hidden");
-        clientList.innerHTML = promos
-          .map(
-            (p) => `
-                    <div class="snap-center shrink-0 w-[280px] sm:w-[320px] bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-md group">
-                        <div class="relative aspect-video">
-                            <iframe src="${p.embedUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
-                        </div>
-                        <div class="p-3 bg-white text-right">
-                            <p class="text-[11px] font-black text-slate-800 truncate">${p.title}</p>
-                            ${p.originalUrl ? `<button onclick="window.open('${p.originalUrl}', '_blank')" class="mt-2 text-[9px] text-emerald-600 font-bold">فتح الرابط المرفق 🔗</button>` : ""}
-                        </div>
-                    </div>
-                `,
-          )
-          .join("");
-      } else {
-        clientList.classList.add("hidden");
-      }
-    }
-
-    // 2. معالجة الإعلان العائم (Floating Ad)
-    const adContainer = document.getElementById("floating-video-ad");
-    const videoTarget = document.getElementById("floating-video-container");
-
-    if (!adContainer || !videoTarget) return;
-
-    if (sessionStorage.getItem("ad_closed")) {
-      adContainer.classList.add("hidden");
-      return;
-    }
-
-    if (promos.length === 0) {
-      adContainer.classList.add("hidden");
-      return;
-    }
-
-    const activePromo = promos[promos.length - 1]; // عرض أحدث فيديو كإعلان عائم
-
-    videoTarget.innerHTML = `
-            <iframe 
-                src="${activePromo.embedUrl}?autoplay=1&mute=1" 
-                class="w-full h-full" 
-                frameborder="0" 
-                allow="autoplay; encrypted-media" 
-                allowfullscreen>
-            </iframe>
-            ${activePromo.originalUrl ? `<div class="absolute inset-0 bg-transparent cursor-pointer z-10" onclick="window.open('${activePromo.originalUrl}', '_blank')"></div>` : ""}
-        `;
-
-    setTimeout(() => {
-      adContainer.classList.remove("hidden");
-      adContainer.classList.add("animate-bounce-in");
-    }, 3000);
-
-    if (window.lucide) lucide.createIcons();
-  });
+        // تفعيل ميزة التمرير التلقائي
+        startPromoAutoCycle(container);
+    });
 }
 
-window.closeFloatingAd = function () {
-  const ad = document.getElementById("floating-video-ad");
-  if (ad) {
-    ad.classList.add("animate-slide-out");
-    setTimeout(() => {
-      ad.classList.add("hidden");
-      // حفظ حالة الإغلاق في الجلسة الحالية فقط
-      sessionStorage.setItem("ad_closed", "true");
-    }, 500);
-  }
-};
+function startPromoAutoCycle(container) {
+    if (promoAutoScrollInterval) clearInterval(promoAutoScrollInterval);
+    
+    promoAutoScrollInterval = setInterval(() => {
+        const scrollAmount = container.offsetWidth;
+        const isAtEnd = container.scrollLeft + container.offsetWidth >= container.scrollWidth - 20;
+
+        if (isAtEnd) {
+            container.scrollTo({
+                left: 0,
+                behavior: 'smooth'
+            });
+        } else {
+            container.scrollBy({
+                left: scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+    }, 5000); // تغيير الإعلان كل 5 ثوانٍ
+}
 
 let bannerAutoScrollInterval;
 let bannerCurrentIndex = 0;
@@ -667,60 +620,47 @@ let bannerTouchStartX = 0;
 let bannerTouchEndX = 0;
 
 function listenToBanners() {
-  const ref = window.firestoreUtils.collection(
-    window.db,
-    "artifacts",
-    window.appId,
-    "public",
-    "data",
-    "banners",
-  );
-  return window.firestoreUtils.onSnapshot(ref, (snap) => {
-    const banners = snap.docs
-      .map((doc) => doc.data())
-      .sort(
-        (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
-      );
-    const slider = document.getElementById("home-banner-slider");
-    const dotsContainer = document.getElementById("banner-dots");
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const banners = snap.docs.map(doc => doc.data()).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        const slider = document.getElementById("home-banner-slider");
+        const dotsContainer = document.getElementById("banner-dots");
+        
+        if (!slider) return;
 
-    if (!slider) return;
-
-    if (banners.length === 0) {
-      // عرض بنر افتراضي عند عدم وجود بنرات
-      slider.innerHTML = `
+        if (banners.length === 0) {
+            // عرض بنر افتراضي عند عدم وجود بنرات
+            slider.innerHTML = `
                 <div class="banner-slide" style="background: linear-gradient(135deg, #1B4332 0%, #2D6A4F 50%, #40916C 100%); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; padding:32px;">
                     <span style="background:rgba(251,191,36,0.2); color:#fbbf24; font-size:11px; padding:8px 18px; border-radius:999px; font-weight:900; border:1px solid rgba(251,191,36,0.3); letter-spacing:3px;">ثقة • جودة • سرعة</span>
                     <h2 style="font-size:clamp(2rem,6vw,4rem); font-weight:900; color:#fff; text-shadow:0 4px 12px rgba(0,0,0,0.5); margin:0;">عروض الجملة!</h2>
                     <button onclick="document.getElementById('search-input').focus()" style="background:linear-gradient(90deg,#f59e0b,#d97706); color:#081C15; padding:12px 28px; border-radius:12px; font-size:14px; font-weight:900; border:none; cursor:pointer; box-shadow:0 8px 20px rgba(245,158,11,0.4);">ابدأ التسوق</button>
                 </div>
             `;
-      slider.style.transform = "translateX(0)";
-      if (dotsContainer) dotsContainer.innerHTML = "";
-      const prevBtn = document.getElementById("banner-prev");
-      const nextBtn = document.getElementById("banner-next");
-      if (prevBtn) prevBtn.style.display = "none";
-      if (nextBtn) nextBtn.style.display = "none";
-      // تهيئة العدادات
-      if (typeof window.initBannerControls === "function")
-        window.initBannerControls(0);
-      return;
-    }
-
-    // رندرة الشرائح مع نصوص تعريفية مخصصة لمجال المنظفات والمواد الغذائية
-    slider.innerHTML = banners
-      .map((b, i) => {
-        const introMessages = [
-          "أولاد الشيخ .. وجهتكم الأولى للمنظفات والبقالة",
-          "عروض حصرية على منتجات الثلاجة والمواد الغذائية",
-          "جملة الجملة .. الجودة والأمانة في كل منتج",
-          "توفير حقيقي لبيتك ومحلك بأفضل الأسعار",
-        ];
-        const message = introMessages[i % introMessages.length];
-
-        return `
-            <div class="banner-slide group" ${b.link ? `onclick="window.open('${b.link}', '_blank')"` : ""} style="${b.link ? "cursor:pointer;" : ""}">
-                <img src="${b.img}" alt="بانر ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}">
+            slider.style.transform = 'translateX(0)';
+            if (dotsContainer) dotsContainer.innerHTML = "";
+            const prevBtn = document.getElementById('banner-prev');
+            const nextBtn = document.getElementById('banner-next');
+            if (prevBtn) prevBtn.style.display = 'none';
+            if (nextBtn) nextBtn.style.display = 'none';
+            // تهيئة العدادات
+            if (typeof window.initBannerControls === 'function') window.initBannerControls(0);
+            return;
+        }
+        
+        // رندرة الشرائح مع نصوص تعريفية مخصصة لمجال المنظفات والمواد الغذائية
+        slider.innerHTML = banners.map((b, i) => {
+            const introMessages = [
+                "أولاد الشيخ .. وجهتكم الأولى للمنظفات والبقالة",
+                "عروض حصرية على منتجات الثلاجة والمواد الغذائية",
+                "جملة الجملة .. الجودة والأمانة في كل منتج",
+                "توفير حقيقي لبيتك ومحلك بأفضل الأسعار"
+            ];
+            const message = introMessages[i % introMessages.length];
+            
+            return `
+            <div class="banner-slide group" ${b.link ? `onclick="window.open('${b.link}', '_blank')"` : ''} style="${b.link ? 'cursor:pointer;' : ''}">
+                <img src="${b.img}" alt="بانر ${i+1}" loading="${i === 0 ? 'eager' : 'lazy'}">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex flex-col justify-end p-6 sm:p-16 text-right">
                     <div class="banner-text-content transition-all duration-1000 transform translate-y-8 opacity-0">
                         <span class="inline-block bg-emerald-600 text-white text-[9px] sm:text-[10px] font-black px-4 py-1.5 rounded-full mb-3 shadow-xl border border-emerald-400/30 uppercase tracking-[0.1em]">أولاد الشيخ لجملة الجملة</span>
@@ -736,48 +676,42 @@ function listenToBanners() {
                 </div>
             </div>
             `;
-      })
-      .join("");
+        }).join("");
 
-    // إظهار / إخفاء أزرار السهام
-    const prevBtn = document.getElementById("banner-prev");
-    const nextBtn = document.getElementById("banner-next");
-    if (prevBtn) prevBtn.style.display = banners.length > 1 ? "" : "none";
-    if (nextBtn) nextBtn.style.display = banners.length > 1 ? "" : "none";
+        // إظهار / إخفاء أزرار السهام
+        const prevBtn = document.getElementById('banner-prev');
+        const nextBtn = document.getElementById('banner-next');
+        if (prevBtn) prevBtn.style.display = banners.length > 1 ? '' : 'none';
+        if (nextBtn) nextBtn.style.display = banners.length > 1 ? '' : 'none';
 
-    // رندرة الدوتس
-    if (dotsContainer && banners.length > 1) {
-      dotsContainer.innerHTML = banners
-        .map(
-          (_, i) =>
-            `<div class="dot ${i === 0 ? "active" : ""}" onclick="window.bannerGoTo(${i})" aria-label="صورة ${i + 1}"></div>`,
-        )
-        .join("");
-    } else if (dotsContainer) {
-      dotsContainer.innerHTML = "";
-    }
-
-    // دعم السحب بالإصبع (Touch/Swipe) على الموبايل
-    const wrapper = document.getElementById("banner-outer-wrapper");
-    if (wrapper) {
-      wrapper.ontouchstart = (e) => {
-        bannerTouchStartX = e.changedTouches[0].clientX;
-      };
-      wrapper.ontouchend = (e) => {
-        bannerTouchEndX = e.changedTouches[0].clientX;
-        const diff = bannerTouchStartX - bannerTouchEndX;
-        if (Math.abs(diff) > 40) {
-          if (diff > 0) window.bannerNext();
-          else window.bannerPrev();
+        // رندرة الدوتس
+        if (dotsContainer && banners.length > 1) {
+            dotsContainer.innerHTML = banners.map((_, i) =>
+                `<div class="dot ${i === 0 ? 'active' : ''}" onclick="window.bannerGoTo(${i})" aria-label="صورة ${i+1}"></div>`
+            ).join("");
+        } else if (dotsContainer) {
+            dotsContainer.innerHTML = "";
         }
-      };
-    }
 
-    // تهيئة العدادات وبدء التشغيل التلقائي عبر الدالة المعرفة في index.html
-    if (typeof window.initBannerControls === "function") {
-      window.initBannerControls(banners.length);
-    }
-  });
+        // دعم السحب بالإصبع (Touch/Swipe) على الموبايل
+        const wrapper = document.getElementById('banner-outer-wrapper');
+        if (wrapper) {
+            wrapper.ontouchstart = (e) => { bannerTouchStartX = e.changedTouches[0].clientX; };
+            wrapper.ontouchend   = (e) => {
+                bannerTouchEndX = e.changedTouches[0].clientX;
+                const diff = bannerTouchStartX - bannerTouchEndX;
+                if (Math.abs(diff) > 40) {
+                    if (diff > 0) window.bannerNext();
+                    else window.bannerPrev();
+                }
+            };
+        }
+
+        // تهيئة العدادات وبدء التشغيل التلقائي عبر الدالة المعرفة في index.html
+        if (typeof window.initBannerControls === 'function') {
+            window.initBannerControls(banners.length);
+        }
+    });
 }
 
 function listenToCategories() {
@@ -954,18 +888,13 @@ window.processImageUrl = async function (url, previewId, hiddenInputId) {
     if (urlObj.searchParams.has("imgurl")) {
       targetUrl = urlObj.searchParams.get("imgurl");
     }
-  } catch (e) {
-    /* ignore invalid URL */
-  }
+  } catch (e) { /* ignore invalid URL */ }
 
   const previewImg = document.getElementById(previewId);
-  const placeholder = document.getElementById(
-    previewId.replace("preview", "placeholder"),
-  );
+  const placeholder = document.getElementById(previewId.replace("preview", "placeholder"));
   const hiddenInput = document.getElementById(hiddenInputId);
 
-  if (window.showToast)
-    window.showToast("جاري التحقق من الصورة...", "info", 2000);
+  if (window.showToast) window.showToast("جاري التحقق من الصورة...", "info", 2000);
 
   const img = new Image();
   img.onload = function () {
@@ -989,19 +918,12 @@ window.processImageUrl = async function (url, previewId, hiddenInputId) {
  *   3. احفظ الـ secure_url في الحقل المخفي
  * عند الفشل (بيئة محلية بدون ENV)، يرجع لـ Base64 تلقائياً.
  */
-window.handleImageUpload = async function (
-  event,
-  previewId,
-  hiddenInputId,
-  maxSize = 800,
-) {
+window.handleImageUpload = async function (event, previewId, hiddenInputId, maxSize = 800) {
   const file = event.target.files[0];
   if (!file) return;
 
   const previewImg = document.getElementById(previewId);
-  const placeholder = document.getElementById(
-    previewId.replace("preview", "placeholder"),
-  );
+  const placeholder = document.getElementById(previewId.replace("preview", "placeholder"));
   const hiddenInput = document.getElementById(hiddenInputId);
 
   // --- عرض معاينة فورية (Blob URL) أثناء الرفع ---
@@ -1011,8 +933,7 @@ window.handleImageUpload = async function (
     previewImg.classList.remove("hidden");
   }
   if (placeholder) placeholder.classList.add("hidden");
-  if (window.showToast)
-    window.showToast("جاري رفع الصورة إلى Cloudinary...", "info", 3000);
+  if (window.showToast) window.showToast("جاري رفع الصورة إلى Cloudinary...", "info", 3000);
 
   // --- تحديد مجلد الرفع بناءً على نوع الصورة ---
   let folder = "sheikh-app/products";
@@ -1040,7 +961,7 @@ window.handleImageUpload = async function (
 
     const uploadRes = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      { method: "POST", body: formData },
+      { method: "POST", body: formData }
     );
     if (!uploadRes.ok) throw new Error("Cloudinary upload failed");
 
@@ -1051,37 +972,25 @@ window.handleImageUpload = async function (
     if (previewImg) previewImg.src = cdnUrl;
     if (hiddenInput) hiddenInput.value = cdnUrl;
     URL.revokeObjectURL(localPreview);
-    if (window.showToast)
-      window.showToast("✅ تم رفع الصورة بنجاح!", "success");
+    if (window.showToast) window.showToast("✅ تم رفع الصورة بنجاح!", "success");
+
   } catch (err) {
-    console.warn(
-      "Cloudinary upload failed, falling back to Base64:",
-      err.message,
-    );
+    console.warn("Cloudinary upload failed, falling back to Base64:", err.message);
     // --- Fallback: Base64 (يُستخدم في البيئة المحلية بدون ENV vars) ---
     const reader = new FileReader();
     reader.onload = function (e) {
       const img = new Image();
       img.onload = function () {
         const canvas = document.createElement("canvas");
-        let width = img.width,
-          height = img.height;
-        if (width > maxSize) {
-          height *= maxSize / width;
-          width = maxSize;
-        }
-        canvas.width = width;
-        canvas.height = height;
+        let width = img.width, height = img.height;
+        if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+        canvas.width = width; canvas.height = height;
         canvas.getContext("2d").drawImage(img, 0, 0, width, height);
         const quality = maxSize >= 1200 ? 0.95 : 0.6;
         const base64 = canvas.toDataURL("image/jpeg", quality);
-        if (previewImg) {
-          previewImg.src = base64;
-          previewImg.classList.remove("hidden");
-        }
+        if (previewImg) { previewImg.src = base64; previewImg.classList.remove("hidden"); }
         if (hiddenInput) hiddenInput.value = base64;
-        if (window.showToast)
-          window.showToast("⚠️ تم حفظ الصورة محلياً (Base64)", "warning");
+        if (window.showToast) window.showToast("⚠️ تم حفظ الصورة محلياً (Base64)", "warning");
       };
       img.src = e.target.result;
     };
@@ -1146,36 +1055,50 @@ Object.entries(exposed).forEach(([name, fn]) => {
   if (typeof fn === "function") window[name] = fn;
 });
 
-// حقن CSS مخصص لتغيير توزيع المنتجات ليصبح 5 في الصف على الكمبيوتر و 3 في الموبايل
+// حقن CSS مخصص لتغيير توزيع المنتجات ليصبح 5 في الصف على الكمبيوتر و 2 في الموبايل
 (function injectGlobalLayoutCSS() {
-  if (document.getElementById("global-layout-styles")) return;
-  const style = document.createElement("style");
-  style.id = "global-layout-styles";
+  if (document.getElementById('global-layout-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'global-layout-styles';
   style.textContent = `
     /* منع التمرير الأفقي العام وتعديل البادنج */
     html, body { overflow-x: hidden; width: 100%; position: relative; }
     .container, #main-content { max-width: 100%; overflow-x: hidden; padding-left: 0.5rem; padding-right: 0.5rem; }
 
-    /* هواتف: 3 منتجات في الصف وتقليل الأحجام لتناسب المساحة */
+    /* هواتف: 2 منتجات في الصف (طلب المستخدم) وتحسين الأحجام */
     @media (max-width: 640px) {
       #products-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-        padding: 4px !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        padding: 8px !important;
       }
-      #products-grid > div { padding: 6px !important; border-radius: 1rem !important; }
-      #products-grid h4 { font-size: 10px !important; }
-      #products-grid .relative.h-28 { height: 80px !important; }
+      #products-grid > div { padding: 10px !important; border-radius: 1.25rem !important; }
+      #products-grid h4 { font-size: 13px !important; min-height: 2.8rem !important; margin-bottom: 8px !important; }
+      #products-grid .relative.h-36 { height: 120px !important; }
+      #products-grid .p-3 { padding: 10px !important; }
+      
+      /* تحسين حجم الأزرار والسعر للموبايل */
+      .price-block button { padding: 4px 6px !important; font-size: 9px !important; }
+      .add-to-cart-btn { padding: 10px !important; }
+      .add-to-cart-btn i { width: 1.25rem !important; height: 1.25rem !important; }
       
       /* ضبط لوحة التحكم للهواتف */
       .is-admin main { padding: 10px !important; }
-      #admin-p-list, #admin-o-list { gap: 10px !important; }
+      #admin-p-list, #admin-o-list { gap: 12px !important; }
+      
+      /* جعل تبويبات الإدارة قابلة للسحب لليمين واليسار */
+      [id^="admin-tab-"] {
+        min-width: 85px !important;
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+      }
     }
 
-    /* شاشات كبيرة: 5 منتجات في الصف */
+    /* شاشات كبيرة: 5 منتجات في الصف لزيادة الكفاءة */
     @media (min-width: 1024px) {
       #products-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 20px !important;
       }
     }
   `;

@@ -61,7 +61,6 @@ window.renderPriceBlock = function (product) {
   
   const unitLabels = {
     bag: { label: 'كيس & شنطة', icon: 'package' },
-    piece: { label: 'قطعة', icon: 'hash' },
     box: { label: 'علبة', icon: 'archive' },
     carton: { label: 'كرتونة', icon: 'layers' },
     shrink: { label: 'شرنك', icon: 'grid' },
@@ -130,7 +129,6 @@ window.getPricingFieldsHTML = function (product) {
   const pPrices = product?.prices || {};
   const prices = {
     bag: pPrices.bag || '',
-    piece: pPrices.piece || product?.price || '',
     box: pPrices.box || '',
     carton: pPrices.carton || '',
     shrink: pPrices.shrink || '',
@@ -174,7 +172,6 @@ window.getPricingFieldsHTML = function (product) {
       <div class="grid grid-cols-2 gap-3">
         ${[
           { id: 'bag', label: 'كيس & شنطة', icon: 'package' },
-          { id: 'piece', label: 'قطعة', icon: 'hash' },
           { id: 'box', label: 'علبة', icon: 'archive' },
           { id: 'carton', label: 'كرتونة', icon: 'layers' },
           { id: 'shrink', label: 'شرنك', icon: 'grid' },
@@ -207,7 +204,6 @@ window.getPricingFieldsHTML = function (product) {
 window.getPricingValues = function () {
   const prices = {
     bag: Number(document.getElementById('p-price-bag')?.value || 0),
-    piece: Number(document.getElementById('p-price-piece')?.value || 0),
     box: Number(document.getElementById('p-price-box')?.value || 0),
     carton: Number(document.getElementById('p-price-carton')?.value || 0),
     shrink: Number(document.getElementById('p-price-shrink')?.value || 0),
@@ -228,7 +224,7 @@ window.getPricingValues = function () {
     price: mainPrice, 
     prices,
     availableUnits: {
-      bag: !!prices.bag, piece: !!prices.piece, box: !!prices.box, 
+      bag: !!prices.bag, box: !!prices.box, 
       carton: !!prices.carton, shrink: !!prices.shrink, bundle: !!prices.bundle,
       bucket: !!prices.bucket, tin: !!prices.tin
     },

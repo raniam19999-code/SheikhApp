@@ -33,8 +33,8 @@ export const ROLE_MESSAGES = {
     reviewer: "مرحباً بك. مهمتك هي مراجعة المنتجات والموافقة على نشرها."
 };
 
-// خريطة التبويبات المسموحة لكل رتبة (تم جعلها مصدر مركزي وحيد للصلاحيات)
-export const ROLE_PERMISSIONS = {
+// خريطة التبويبات المسموحة لكل رتبة
+const ROLE_PERMISSIONS = {
     [ADMIN_ROLES.SUPER_ADMIN]: ["p", "c", "o", "i", "promo", "import", "bot", "review", "staff", "banners"],
     [ADMIN_ROLES.IMPORTER]: ["import"],
     [ADMIN_ROLES.IMAGE_EDITOR]: ["p", "c", "banners"], 
@@ -138,6 +138,9 @@ function injectRestrictionStyles(role) {
             button[onclick*="deleteProduct"], 
             button[onclick*="deleteOrder"], 
             button[onclick*="deleteCategory"],
+            #add-admin-container,
+            button[onclick="openCategoryModal()"],
+            button[onclick="openProductModal()"],
             #bulk-tools { 
                 display: none !important; 
                 pointer-events: none !important; 
