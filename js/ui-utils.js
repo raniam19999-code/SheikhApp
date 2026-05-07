@@ -24,6 +24,10 @@ function safeCreateIcons() {
 }
 
 export function showTab(id) {
+  if (id !== "home" && window.pushNavigationState) {
+    window.pushNavigationState("tab", { tabId: id });
+  }
+
   if (id === "checkout" && (!window.currentUser || window.currentUser.isAnonymous)) {
     if (window.showLoginModal) {
       window.showLoginModal();

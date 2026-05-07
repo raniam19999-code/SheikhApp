@@ -281,8 +281,9 @@ function getSmartResponse(msg) {
   });
   if (matchedProduct) {
     const price = matchedProduct.price || (matchedProduct.prices && matchedProduct.prices.bag) || 0;
-    const unit = matchedProduct.unitMeasurement || matchedProduct.unit || "كيس";
-    const text = `بخصوص "${matchedProduct.name}"، هو متوفر حالياً بسعر ${Number(price).toFixed(2)} ج.م للـ ${unit}. هل تود إضافته للسلة الآن؟ 🛒`;
+    const unit = (window.isAdminUser && window.isAdminUser()) ? (matchedProduct.unitMeasurement || matchedProduct.unit || "كيس") : "";
+    const unitText = unit ? ` للـ ${unit}` : "";
+    const text = `بخصوص "${matchedProduct.name}"، هو متوفر حالياً بسعر ${Number(price).toFixed(2)} ج.م${unitText}. هل تود إضافته للسلة الآن؟ 🛒`;
     
     if (matchedProduct.img) {
       return `

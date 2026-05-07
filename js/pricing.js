@@ -82,7 +82,7 @@ window.renderPriceBlock = function (product) {
       >
         <i data-lucide="${unitLabels[unitKey].icon}" class="w-3 h-3 sm:w-4 sm:h-4 opacity-70"></i>
         <div class="flex flex-col items-start leading-tight">
-          <span class="text-[7px] sm:text-[8px] opacity-60">${unitLabels[unitKey].label}</span>
+          ${unitKey === 'bag' ? '' : `<span class="text-[7px] sm:text-[8px] opacity-60">${unitLabels[unitKey].label}</span>`}
           <span class="text-[11px] sm:text-[13px] font-black">${pVal.toFixed(2)} <span class="text-[7px] ${isActive ? 'text-white/70' : 'text-emerald-600'}">EGP</span></span>
         </div>
       </button>

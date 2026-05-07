@@ -443,9 +443,20 @@
         </div>
       </div>
 
-      <!-- Promo Videos Section -->
-      <div id="promos-client-container"
-        class="px-4 sm:px-5 mb-10 hidden overflow-x-auto no-scrollbar flex gap-4 snap-x snap-mandatory scroll-smooth pb-4">
+      <!-- Promo Videos Section (Sponsored Content) -->
+      <div id="sponsored-videos-wrapper" class="hidden px-4 sm:px-5 mb-10 relative">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+            <h3 class="font-extrabold text-lg text-slate-800">فيديوهات ممولة</h3>
+          </div>
+          <button onclick="window.closeSponsoredVideos()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors shadow-sm" title="إغلاق">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div id="promos-client-container"
+          class="overflow-x-auto no-scrollbar flex gap-4 snap-x snap-mandatory scroll-smooth pb-4">
+        </div>
       </div>
 
       <!-- Categories List -->
@@ -501,13 +512,7 @@
           </div>
         </div>
 
-        <!-- Load More Button -->
-        <div id="load-more-container" class="pb-20 text-center hidden">
-          <button onclick="window.loadMoreProducts()"
-            class="bg-white border-2 border-slate-200 text-slate-600 px-8 py-3 rounded-2xl font-black hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm active:scale-95">
-            عرض المزيد من المنتجات
-          </button>
-        </div>
+        <!-- (تم إلغاء زر عرض المزيد بناءً على طلب المستخدم لعرض كافة المنتجات مباشرة) -->
       </div>
     </section>
 

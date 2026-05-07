@@ -110,6 +110,7 @@ export function closeModals() {
 window.closeModals = closeModals;
 
 export function openProductModal(product = null) {
+  if (window.pushNavigationState) window.pushNavigationState("modal", { modalId: "product-modal" });
   window.editingId = product ? product.id : null;
   document.getElementById("modal-p-title").innerText = product
     ? "تعديل منتج"
@@ -291,6 +292,7 @@ export async function saveProduct() {
 window.saveProduct = saveProduct;
 
 export function openCategoryModal(cat = null) {
+  if (window.pushNavigationState) window.pushNavigationState("modal", { modalId: "category-modal" });
   window.editingId = cat ? cat.id : null;
   document.getElementById("c-name").value = cat ? cat.name : "";
   document.getElementById("c-img-base64").value = cat ? cat.img || "" : "";

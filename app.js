@@ -135,10 +135,61 @@ window.currentFilter = { type: "all", value: null };
 window.currentParentId = null; // تتبع مستوى الأقسام (رئيسية أم فرعية)
 let loadAttempts = 0;
 
-// نظام التحميل التدريجي (Pagination)
-window.itemsPerPage = 2;
-window.currentRenderLimit = 2;
+// نظام التحميل التدريجي (تم إلغاؤه بناءً على طلب المستخدم لعرض الكل)
+window.itemsPerPage = 5000;
+window.currentRenderLimit = 5000;
 window.lastRenderedProducts = [];
+
+// --- نظام التنقل وإدارة تاريخ المتصفح (للتحكم في زر الرجوع بالهاتف) ---
+window.pushNavigationState = function (type, data = {}) {
+  const state = { type, ...data, timestamp: Date.now() };
+  history.pushState(state, "");
+};
+
+window.addEventListener("popstate", (event) => {
+  const state = event.state;
+
+  // 1. إغلاق المودالات المفتوحة أولاً
+  const productModal = document.getElementById("product-modal");
+  const categoryModal = document.getElementById("category-modal");
+  const loginModal = document.getElementById("login-required-modal");
+  const bulkModal = document.getElementById("bulk-import-modal");
+  const bannerModal = document.getElementById("banner-modal");
+
+  let modalClosed = false;
+  [productModal, categoryModal, loginModal, bulkModal, bannerModal].forEach(
+    (m) => {
+      if (m && !m.classList.contains("hidden")) {
+        if (m.id === "login-required-modal" && window.closeLoginModal) window.closeLoginModal();
+        else if (m.id === "bulk-import-modal" && window.closeBulkImportModal) window.closeBulkImportModal();
+        else if (m.id === "banner-modal" && window.closeBannerModal) window.closeBannerModal();
+        else if (window.closeModals) window.closeModals();
+        modalClosed = true;
+      }
+    },
+  );
+  if (modalClosed) return;
+
+  // 2. إغلاق لوحة الإشعارات
+  const notifPanel = document.getElementById("notification-panel");
+  if (notifPanel && !notifPanel.classList.contains("hidden")) {
+    if (window.toggleNotificationPanel) window.toggleNotificationPanel();
+    return;
+  }
+
+  // 3. التعامل مع التنقل بين الأقسام
+  if (window.currentParentId !== null) {
+    window.navigateBackCategories();
+    return;
+  }
+
+  // 4. العودة للتبويب الرئيسي (الرئيسية) إذا كان المستخدم في تبويب آخر
+  const activeTab = document.querySelector(".tab-content.active");
+  if (activeTab && activeTab.id !== "home") {
+    window.showTab("home");
+    return;
+  }
+});
 
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
@@ -194,6 +245,7 @@ window.renderCategories = function () {
 };
 
 window.handleCategoryClick = function (catId, catName, hasSubs) {
+  window.pushNavigationState("category", { catId, catName, hasSubs });
   if (hasSubs) {
     // إذا كان له أقسام فرعية، ننتقل للمستوى التالي
     window.currentParentId = catId;
@@ -325,7 +377,7 @@ window.renderProducts = function (productsToRender = window.products) {
                 <div class="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100 mb-3 shadow-inner">
                     <div class="flex items-center justify-between text-[8px] sm:text-[10px] mb-2 pb-1.5 border-b border-slate-200">
                         ${isAdmin ? `<span class="flex items-center gap-1 font-mono text-slate-400"><i data-lucide="tag" class="w-3 h-3 opacity-60"></i> ${p.sku || "---"}</span>` : `<span></span>`}
-                        <span class="flex items-center gap-1 font-bold text-[#1B4332] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">${p.unitMeasurement || "متوفر"}</span>
+                        ${isAdmin ? `<span class="flex items-center gap-1 font-bold text-[#1B4332] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">${p.unitMeasurement || "متوفر"}</span>` : `<span></span>`}
                     </div>
                     <div class="product-price-wrapper min-h-[40px] sm:min-h-[50px] flex flex-col items-center justify-center gap-1">
                         ${priceBlock}
@@ -563,32 +615,54 @@ function listenToProducts() {
   });
 }
 
+// --- إدارة قسم الفيديوهات الممولة ---
+window.closeSponsoredVideos = function() {
+    const wrapper = document.getElementById("sponsored-videos-wrapper");
+    if (wrapper) wrapper.classList.add("hidden");
+    // حفظ حالة الإغلاق في الجلسة الحالية فقط لتظهر مرة أخرى عند إعادة التحميل، 
+    // أو في localStorage إذا كان المطلوب إخفاؤها دائماً.
+    // سنستخدم sessionStorage لضمان ظهورها في كل زيارة جديدة.
+    sessionStorage.setItem("sponsored_videos_closed", "true");
+};
+
 let promoAutoScrollInterval;
 
 function listenToPromotions() {
     const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
     return window.firestoreUtils.onSnapshot(ref, (snap) => {
         const promos = snap.docs.map(doc => doc.data());
+        const wrapper = document.getElementById("sponsored-videos-wrapper");
         const container = document.getElementById("promos-client-container");
-        if (!container) return;
         
-        if (promos.length === 0) {
-            container.classList.add("hidden");
+        if (!wrapper || !container) return;
+
+        // التحقق مما إذا كان المستخدم قد أغلق القسم في هذه الجلسة
+        const isClosed = sessionStorage.getItem("sponsored_videos_closed") === "true";
+        
+        if (promos.length === 0 || isClosed) {
+            wrapper.classList.add("hidden");
             return;
         }
         
-        container.classList.remove("hidden");
-        container.innerHTML = promos.map(p => `
-            <div class="min-w-[90vw] sm:min-w-[100%] h-[250px] sm:h-[450px] rounded-[2.5rem] sm:rounded-[3.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] bg-black relative group border border-white/10 snap-center transition-transform duration-500">
-                <iframe src="${p.embedUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
-                <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-10 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none">
-                    <p class="text-white text-base sm:text-2xl font-black drop-shadow-2xl translate-y-2 group-hover:translate-y-0 transition-transform duration-300">${p.title}</p>
+        wrapper.classList.remove("hidden");
+        container.innerHTML = promos.map((p, idx) => `
+            <div class="min-w-[85vw] sm:min-w-[300px] aspect-video rounded-3xl overflow-hidden shadow-xl bg-black relative group border border-slate-100 snap-center transition-all duration-300 hover:shadow-emerald-100">
+                <iframe src="${p.embedUrl}" class="w-full h-full pointer-events-auto" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <div class="absolute top-3 left-3 bg-red-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg z-10 animate-pulse">LIVE / SPONSORED</div>
+                <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
+                    <p class="text-white text-xs font-black truncate">${p.title || "فيديو ممول"}</p>
                 </div>
             </div>
         `).join("");
 
-        // تفعيل ميزة التمرير التلقائي
-        startPromoAutoCycle(container);
+        if (window.lucide) lucide.createIcons();
+
+        // تفعيل ميزة التمرير التلقائي فقط إذا كان هناك أكثر من فيديو
+        if (promos.length > 1) {
+            startPromoAutoCycle(container);
+        } else if (promoAutoScrollInterval) {
+            clearInterval(promoAutoScrollInterval);
+        }
     });
 }
 
@@ -766,6 +840,7 @@ window.filterByCategory = function (catId, catName) {
 };
 
 window.handleCategoryClick = function (catId, catName, hasSubs) {
+  window.pushNavigationState("category", { catId, catName, hasSubs });
   if (hasSubs) {
     window.currentParentId = catId;
     window.currentFilter = { type: "category", id: catId, name: catName }; // Set filter context
@@ -833,13 +908,6 @@ window.searchProducts = function (term) {
   window.renderProducts(filtered);
 };
 
-window.loadMoreProducts = function () {
-  window.currentRenderLimit += window.itemsPerPage;
-  window.renderProducts(window.lastRenderedProducts);
-
-  // سكرول بسيط للأسفل لرؤية المنتجات الجديدة
-  window.scrollBy({ top: 300, behavior: "smooth" });
-};
 
 window.filterByStatus = function (status) {
   window.currentFilter = { type: "status", value: status };
@@ -1094,10 +1162,10 @@ Object.entries(exposed).forEach(([name, fn]) => {
       }
     }
 
-    /* شاشات كبيرة: 5 منتجات في الصف لزيادة الكفاءة */
+    /* شاشات كبيرة: 4 منتجات في الصف (طلب المستخدم) */
     @media (min-width: 1024px) {
       #products-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         gap: 20px !important;
       }
     }
