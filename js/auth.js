@@ -126,13 +126,6 @@ export function listenToAuth() {
       window.unsubs.userProfile = window.firestoreUtils.onSnapshot(uRef, async (uDoc) => {
         const data = uDoc.exists() ? uDoc.data() : {};
         
-        // تحديث واجهة المستخدم بالاسم والبيانات الفعلية
-        if (data.name) {
-            document.getElementById("profile-email").innerText = data.name;
-        } else {
-            document.getElementById("profile-email").innerText = user.email;
-        }
-
         // إعادة التحقق من الرتبة عند حدوث أي تغيير في بيانات المستخدم
         const userRole = await detectAndApplyRole(data);
 
@@ -204,34 +197,23 @@ export function listenToAuth() {
 }
 
 export async function handleAuth() {
-  const nameEl = document.getElementById("full-name");
-  const phoneEl = document.getElementById("phone");
-  const genderEl = document.getElementById("gender");
-
-  const name = nameEl ? nameEl.value.trim() : "";
-  const phone = phoneEl ? phoneEl.value.trim() : "";
-  const gender = genderEl ? genderEl.value : "male";
-
-  if (!phone) return window.showToast("يرجى إدخال رقم الهاتف", "warning");
-  if (phone.length < 10) return window.showToast("رقم الهاتف يجب أن يكون 10 أرقام على الأقل", "warning");
-  if (!name && window.authMode === "signup") return window.showToast("يرجى إدخال الاسم لإنشاء الحساب", "warning");
-
-  // تنظيف رقم الهاتف من أي مسافات أو رموز
-  const cleanPhone = phone.replace(/\s+/g, '').replace(/[^\d]/g, '');
-  const email = `${cleanPhone}@sheikh-app.com`;
-  const pass = `pass_${cleanPhone}`;
-
+  const email = document.getElementById("email").value.trim();
+  const pass = document.getElementById("password").value.trim();
+  if (!email || !pass) return alert("البيانات ناقصة");
+  if (pass.length < 6)
+    return window.showToast(
+      "كلمة المرور يجب أن تكون 6 أحرف على الأقل",
+      "warning",
+    );
   try {
     if (window.authMode === "signup") {
-      console.log("Attempting Signup for:", email);
+      const cleanEmail = email.toLowerCase();
       const res = await window.authUtils.createUserWithEmailAndPassword(
         window.auth,
-        email,
+        cleanEmail,
         pass,
       );
-      
-      const role = email.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
-      
+      const role = cleanEmail === window.PRIMARY_ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
       await window.firestoreUtils.setDoc(
         window.firestoreUtils.doc(
           window.db,
@@ -241,57 +223,31 @@ export async function handleAuth() {
           res.user.uid,
         ),
         {
-          email: email,
-          name: name || "مستخدم جديد",
-          phone: cleanPhone,
-          gender: gender,
+          email: cleanEmail,
           role,
           uid: res.user.uid,
           createdAt: window.firestoreUtils.serverTimestamp(),
         },
       );
     } else {
-      console.log("Attempting Login for:", email);
-      try {
-        await window.authUtils.signInWithEmailAndPassword(
-          window.auth,
-          email,
-          pass,
-        );
-      } catch (loginErr) {
-        console.error("Login inner error:", loginErr.code);
-        if (loginErr.code === "auth/user-not-found" || loginErr.code === "auth/invalid-credential") {
-          // إذا لم يجد الحساب أو البيانات غير صحيحة (قد يكون حساباً جديداً)
-          if (name) {
-              window.authMode = "signup";
-              return handleAuth();
-          } else {
-              return window.showToast("هذا الرقم غير مسجل، يرجى كتابة اسمك والضغط مرة أخرى لإنشاء حساب", "info");
-          }
-        } else {
-          throw loginErr;
-        }
-      }
+      await window.authUtils.signInWithEmailAndPassword(
+        window.auth,
+        email,
+        pass,
+      );
     }
-    if (window.showNotification) window.showNotification("تمت العملية بنجاح");
-    else window.showToast("تم تسجيل الدخول بنجاح", "success");
+    window.showNotification("تمت العملية بنجاح");
   } catch (e) {
-    console.error("Auth Global Error:", e.code, e.message);
-    let errorMsg = "حدث خطأ أثناء الاتصال بـ Firebase: " + e.code;
-    
+    let errorMsg = "خطأ: " + e.code;
     if (e.code === "auth/admin-restricted-operation") {
-      errorMsg = "التسجيل معطل من إعدادات Firebase (Admin Restricted).";
+      errorMsg = "خدمة التسجيل معطلة حالياً. (تأكد من تفعيل Anonymous و Sign-up من إعدادات Firebase).";
+      console.error("Firebase Auth Error: 'admin-restricted-operation' usually means you need to enable 'Anonymous' or 'Email/Password' providers and 'Enable create (sign-up)' in the Firebase Console.");
     } else if (e.code === "auth/email-already-in-use") {
-      window.authMode = "login";
-      return handleAuth();
-    } else if (e.code === "auth/invalid-email") {
-      errorMsg = "بيانات رقم الهاتف غير صالحة.";
-    } else if (e.code === "auth/network-request-failed") {
-      errorMsg = "فشل الاتصال بالإنترنت، يرجى المحاولة لاحقاً.";
-    } else if (e.code === "auth/too-many-requests") {
-        errorMsg = "محاولات كثيرة خاطئة، تم حظر الدخول مؤقتاً.";
+      errorMsg = "البريد الإلكتروني مسجل بالفعل.";
+    } else if (e.code === "auth/weak-password") {
+      errorMsg = "كلمة المرور ضعيفة جداً.";
     }
-    
+    console.warn("Auth Error:", e.code, e.message);
     window.showToast(errorMsg, "error");
   }
 }
@@ -300,8 +256,9 @@ export function toggleAuthMode() {
   window.authMode = window.authMode === "login" ? "signup" : "login";
   document.getElementById("auth-title").innerText =
     window.authMode === "login" ? "تسجيل الدخول" : "حساب جديد";
-  document.getElementById("auth-btn").innerText = 
-    window.authMode === "login" ? "دخول" : "إنشاء حساب";
+  document
+    .getElementById("signup-fields")
+    .classList.toggle("hidden", window.authMode === "login");
 }
 
 export async function logout() {
@@ -322,19 +279,10 @@ export function closeLoginModal() {
 }
 
 export async function handleModalAuth() {
-  const nameEl = document.getElementById("modal-full-name");
-  const phoneEl = document.getElementById("modal-phone");
-  const genderEl = document.getElementById("modal-gender");
-
-  const name = nameEl ? nameEl.value.trim() : "";
-  const phone = phoneEl ? phoneEl.value.trim() : "";
-  const gender = genderEl ? genderEl.value : "male";
-
-  if (!phone) return window.showToast("يرجى إدخال رقم الهاتف", "warning");
-
-  const cleanPhone = phone.replace(/\s+/g, '').replace(/[^\d]/g, '');
-  const email = `${cleanPhone}@sheikh-app.com`;
-  const pass = `pass_${cleanPhone}`;
+  const email = document.getElementById("modal-email").value.trim();
+  const pass = document.getElementById("modal-password").value.trim();
+  if (!email || !pass)
+    return window.showToast("يرجى إدخال البيانات المطلوبة", "warning");
 
   try {
     if (window.modalAuthMode === "signup") {
@@ -343,7 +291,7 @@ export async function handleModalAuth() {
         email,
         pass,
       );
-      const role = email.toLowerCase() === window.PRIMARY_ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
+      const role = email === window.PRIMARY_ADMIN_EMAIL ? "admin" : "user";
       await window.firestoreUtils.setDoc(
         window.firestoreUtils.doc(
           window.db,
@@ -354,45 +302,34 @@ export async function handleModalAuth() {
         ),
         {
           email,
-          name: name || "مستخدم جديد",
-          phone: cleanPhone,
-          gender,
           role,
           uid: res.user.uid,
           createdAt: window.firestoreUtils.serverTimestamp(),
         },
       );
     } else {
-      try {
-        await window.authUtils.signInWithEmailAndPassword(
-          window.auth,
-          email,
-          pass,
-        );
-      } catch (loginErr) {
-        if (loginErr.code === "auth/user-not-found" || loginErr.code === "auth/invalid-credential") {
-          if (name) {
-              window.modalAuthMode = "signup";
-              return handleModalAuth();
-          } else {
-              return window.showToast("يرجى كتابة الاسم لإنشاء الحساب", "info");
-          }
-        } else {
-          throw loginErr;
-        }
-      }
+      await window.authUtils.signInWithEmailAndPassword(
+        window.auth,
+        email,
+        pass,
+      );
     }
     closeLoginModal();
-    if (window.showNotification) window.showNotification("تمت العملية بنجاح");
-    else window.showToast("تم الدخول بنجاح", "success");
+    window.showNotification("تمت العملية بنجاح");
   } catch (e) {
-    console.error("Modal Auth Error:", e.code, e.message);
     let errorMsg = "خطأ في البيانات أو الخدمة غير مفعلة";
-    if (e.code === "auth/invalid-email") errorMsg = "البيانات غير صحيحة";
-    if (e.code === "auth/email-already-in-use") {
-        window.modalAuthMode = "login";
-        return handleModalAuth();
-    }
+    if (e.code === "auth/invalid-email")
+      errorMsg = "البريد الإلكتروني غير صحيح";
+    if (e.code === "auth/email-already-in-use")
+      errorMsg = "هذا البريد مسجل بالفعل";
+    if (e.code === "auth/user-not-found") errorMsg = "الحساب غير موجود";
+    if (e.code === "auth/wrong-password") errorMsg = "كلمة المرور خاطئة";
+    if (e.code === "auth/invalid-credential")
+      errorMsg = "بيانات الدخول غير صحيحة";
+    if (e.code === "auth/weak-password")
+      errorMsg = "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
+
+    console.error("Auth Error:", e.code, e.message);
     window.showToast(errorMsg, "error");
   }
 }
@@ -445,8 +382,9 @@ export function toggleModalAuthMode() {
   window.modalAuthMode = window.modalAuthMode === "login" ? "signup" : "login";
   document.getElementById("modal-auth-title").innerText =
     window.modalAuthMode === "login" ? "تسجيل الدخول" : "إنشاء حساب";
-  document.getElementById("modal-auth-btn").innerText = 
-    window.modalAuthMode === "login" ? "دخول" : "إنشاء حساب";
+  document
+    .getElementById("modal-signup-fields")
+    .classList.toggle("hidden", window.modalAuthMode === "login");
 }
 
 export async function promoteUserToAdmin() {

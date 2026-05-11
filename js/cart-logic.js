@@ -27,6 +27,8 @@ export async function addToCart(id, name, price, unit) {
   const product = window.products.find(p => p.id === id);
   if (!product) return window.showToast("Critical Error: المنتج غير معرف", "error");
 
+  const cleanName = name.replace(/\s*\(.*?\)\s*/g, '');
+
   // جلب الكمية التي اختارها العميل من حقل الإدخال
   const qty = parseFloat(document.getElementById(`qty-${id}`)?.value || 1);
   const stockLimit = Number(product.quantity || 0);
@@ -83,7 +85,7 @@ export async function addToCart(id, name, price, unit) {
       
       await window.firestoreUtils.addDoc(cartRef, { 
         productId: id, 
-        productName: `${name} (${unit})`, 
+        productName: cleanName, 
         basePrice: price, 
         orderedQuantity: qty, 
         selectedUnit: unit,
@@ -101,7 +103,7 @@ export async function addToCart(id, name, price, unit) {
     window.cart.push({ 
       id: id + unit, 
       originalId: id, 
-      name: `${name} (${unit})`, 
+      name: cleanName, 
       basePrice: price, 
       orderedQuantity: qty, 
       unit, 
@@ -110,7 +112,7 @@ export async function addToCart(id, name, price, unit) {
     });
   }
 
-  window.showNotification(` تمت إضافة ${name} للسلة`);
+  window.showNotification(` تمت إضافة ${cleanName} للسلة`);
   if (window.updateCartBadge) window.updateCartBadge();
 }
 export function renderCart() {
@@ -139,9 +141,9 @@ export function renderCart() {
     total += sub;
     return `<div class="bg-white p-4 rounded-3xl border flex items-center justify-between">
       <div>
-        <p class="font-black text-sm">${item.productName || item.name}</p>
+        <p class="font-black text-sm">${(item.productName || item.name).replace(/\s*\(.*?\)\s*/g, '')}</p>
         <div class="flex items-center gap-2 mt-1">
-          <span class="text-[10px] text-slate-400 font-bold">${item.orderedQuantity} × ${priceVal.toFixed(2)}</span>
+          <span class="text-[10px] text-slate-400 font-bold">${item.orderedQuantity} × ${priceVal.toFixed(2)} <span class="text-[8px] opacity-70">EGP</span></span>
           <p class="text-primary font-bold">${sub.toFixed(2)} <span class="currency-shic text-[10px] opacity-80">EGP</span></p>
         </div>
       </div>
@@ -151,9 +153,7 @@ export function renderCart() {
     </div>`;
   }).join("");
   document.getElementById("total").innerHTML = `${total.toFixed(2)} <span class="text-sm">ج.م</span>`;
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
+  lucide.createIcons();
 }
 
 export async function removeFromCart(id) {

@@ -295,8 +295,8 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
 
       return `
       <tr class="border-b border-slate-50 text-[10px]">
-        <td class="py-2 font-mono text-slate-400">${displaySku || '—'}</td>
-        <td class="py-2 pr-2 font-bold text-slate-700">${item.productName || item.name}</td>
+        <td class="py-2 font-mono text-slate-400 ${!isAdmin ? 'hidden' : ''}">${displaySku || '—'}</td>
+        <td class="py-2 pr-2 font-bold text-slate-700">${(item.productName || item.name || 'منتج').replace(/\s*\(.*?\)\s*/g, '')}</td>
         <td class="py-2 text-center font-black text-emerald-700">${item.orderedQuantity}</td>
         <td class="py-2 text-left font-bold text-slate-600">${Number(item.basePrice || item.price || 0).toFixed(2)} <span class="currency-shic text-[8px] opacity-70">EGP</span></td>
       </tr>
@@ -365,7 +365,7 @@ function renderOrdersList(orders, containerId, isAdmin = false) {
           <table class="w-full text-right border-collapse">
             <thead class="bg-slate-100">
               <tr class="text-[9px] font-black text-slate-600 border-b border-slate-200">
-                <th class="p-2">الكود</th>
+                <th class="p-2 ${!isAdmin ? 'hidden' : ''}">الكود</th>
                 <th class="p-2 pr-2">الاسم</th>
                 <th class="p-2 text-center">كمية</th>
                 <th class="p-2 text-left">سعر</th>
@@ -430,9 +430,7 @@ window.printInvoice = (id) => {
     style.innerHTML = `
         @media print {
             /* إخفاء كل شيء في الصفحة */
-            body > *:not(#print-container) { 
-                display: none !important; 
-            }
+            body > *:not(#print-container) { display: none !important; }
             
             /* تهيئة الحاوية المؤقتة */
             #print-container {
@@ -442,31 +440,44 @@ window.printInvoice = (id) => {
                 width: 100%;
                 background: white !important;
                 visibility: visible !important;
+                display: block !important;
+                direction: rtl !important;
             }
 
             /* تحسينات إضافية للفاتورة */
             .print\\:hidden { display: none !important; }
             .print\\:block { display: block !important; }
+            .print\\:flex { display: flex !important; }
+            .hidden.print\\:flex { display: flex !important; }
+            .hidden.print\\:block { display: block !important; }
             
             /* تأكد من ظهور الصور والخلفيات */
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            
+            /* ضبط الهوامش */
+            @page { margin: 10mm; size: auto; }
         }
     `;
     
     // إنشاء حاوية مؤقتة للطباعة لضمان عدم تأثرها بتنسيقات الأب
     const printContainer = document.createElement('div');
     printContainer.id = 'print-container';
-    printContainer.innerHTML = el.innerHTML;
+    // نسخ العنصر بالكامل مع فئاته لضمان بقاء التنسيق
+    const clone = el.cloneNode(true);
+    printContainer.appendChild(clone);
+    
     document.body.appendChild(printContainer);
     document.head.appendChild(style);
 
-    window.print();
-
-    // تنظيف بعد الطباعة
+    // إعطاء المتصفح وقتاً بسيطاً لتهيئة العناصر قبل فتح نافذة الطباعة
     setTimeout(() => {
-        document.getElementById('print-style')?.remove();
-        document.getElementById('print-container')?.remove();
-    }, 1000);
+        window.print();
+        // تنظيف بعد الطباعة
+        setTimeout(() => {
+            document.getElementById('print-style')?.remove();
+            document.getElementById('print-container')?.remove();
+        }, 500);
+    }, 250);
 };
 
 window.updateOrderStatus = async (id, newStatus) => {

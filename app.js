@@ -66,6 +66,17 @@ try {
   app = window.firebaseApp;
 }
 
+// دالة مساعدة لدفع حالة التطبيق إلى سجل المتصفح
+window.pushAppState = function(filter, parentId) {
+  const state = { filter: filter, parentId: parentId };
+  // استخدام replaceState للحالة الأولية لتجنب تكرار نفس الدخول في السجل
+  // واستخدام pushState للحالات اللاحقة
+  if (history.state === null || history.state.filter === undefined) {
+    history.replaceState(state, '', window.location.pathname);
+  } else {
+    history.pushState(state, '', window.location.pathname);
+  }
+};
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId =
@@ -135,61 +146,11 @@ window.currentFilter = { type: "all", value: null };
 window.currentParentId = null; // تتبع مستوى الأقسام (رئيسية أم فرعية)
 let loadAttempts = 0;
 
-// نظام التحميل التدريجي (تم إلغاؤه بناءً على طلب المستخدم لعرض الكل)
-window.itemsPerPage = 5000;
-window.currentRenderLimit = 5000;
+
+// نظام التحميل التدريجي (Pagination)
+window.itemsPerPage = 20;
+window.currentRenderLimit = 20;
 window.lastRenderedProducts = [];
-
-// --- نظام التنقل وإدارة تاريخ المتصفح (للتحكم في زر الرجوع بالهاتف) ---
-window.pushNavigationState = function (type, data = {}) {
-  const state = { type, ...data, timestamp: Date.now() };
-  history.pushState(state, "");
-};
-
-window.addEventListener("popstate", (event) => {
-  const state = event.state;
-
-  // 1. إغلاق المودالات المفتوحة أولاً
-  const productModal = document.getElementById("product-modal");
-  const categoryModal = document.getElementById("category-modal");
-  const loginModal = document.getElementById("login-required-modal");
-  const bulkModal = document.getElementById("bulk-import-modal");
-  const bannerModal = document.getElementById("banner-modal");
-
-  let modalClosed = false;
-  [productModal, categoryModal, loginModal, bulkModal, bannerModal].forEach(
-    (m) => {
-      if (m && !m.classList.contains("hidden")) {
-        if (m.id === "login-required-modal" && window.closeLoginModal) window.closeLoginModal();
-        else if (m.id === "bulk-import-modal" && window.closeBulkImportModal) window.closeBulkImportModal();
-        else if (m.id === "banner-modal" && window.closeBannerModal) window.closeBannerModal();
-        else if (window.closeModals) window.closeModals();
-        modalClosed = true;
-      }
-    },
-  );
-  if (modalClosed) return;
-
-  // 2. إغلاق لوحة الإشعارات
-  const notifPanel = document.getElementById("notification-panel");
-  if (notifPanel && !notifPanel.classList.contains("hidden")) {
-    if (window.toggleNotificationPanel) window.toggleNotificationPanel();
-    return;
-  }
-
-  // 3. التعامل مع التنقل بين الأقسام
-  if (window.currentParentId !== null) {
-    window.navigateBackCategories();
-    return;
-  }
-
-  // 4. العودة للتبويب الرئيسي (الرئيسية) إذا كان المستخدم في تبويب آخر
-  const activeTab = document.querySelector(".tab-content.active");
-  if (activeTab && activeTab.id !== "home") {
-    window.showTab("home");
-    return;
-  }
-});
 
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
@@ -245,7 +206,6 @@ window.renderCategories = function () {
 };
 
 window.handleCategoryClick = function (catId, catName, hasSubs) {
-  window.pushNavigationState("category", { catId, catName, hasSubs });
   if (hasSubs) {
     // إذا كان له أقسام فرعية، ننتقل للمستوى التالي
     window.currentParentId = catId;
@@ -257,6 +217,7 @@ window.handleCategoryClick = function (catId, catName, hasSubs) {
     window.filterByCategory(catId, catName);
   }
 };
+
 
 window.navigateBackCategories = function () {
   const filterCatId = window.currentFilter
@@ -335,7 +296,7 @@ window.renderProducts = function (productsToRender = window.products) {
       const isOutOfStock = p.status === "out_of_stock" || p.quantity <= 0;
       const priceBlock = window.renderPriceBlock
         ? window.renderPriceBlock(p)
-        : `<p class="font-bold text-slate-800">${Number(p.price || 0).toFixed(2)} <span class="currency-shic">EGP</span> للـ كيس</p>`;
+        : `<p class="font-bold text-slate-800">${Number(p.price || 0).toFixed(2)} <span class="currency-shic">EGP</span></p>`;
 
       const defaultPrice = window.getEffectivePrice
         ? window.getEffectivePrice(p, "bag")
@@ -377,7 +338,7 @@ window.renderProducts = function (productsToRender = window.products) {
                 <div class="bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100 mb-3 shadow-inner">
                     <div class="flex items-center justify-between text-[8px] sm:text-[10px] mb-2 pb-1.5 border-b border-slate-200">
                         ${isAdmin ? `<span class="flex items-center gap-1 font-mono text-slate-400"><i data-lucide="tag" class="w-3 h-3 opacity-60"></i> ${p.sku || "---"}</span>` : `<span></span>`}
-                        ${isAdmin ? `<span class="flex items-center gap-1 font-bold text-[#1B4332] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">${p.unitMeasurement || "متوفر"}</span>` : `<span></span>`}
+                        <span class="flex items-center gap-1 font-bold text-[#1B4332] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">متوفر</span>
                     </div>
                     <div class="product-price-wrapper min-h-[40px] sm:min-h-[50px] flex flex-col items-center justify-center gap-1">
                         ${priceBlock}
@@ -527,6 +488,10 @@ async function startApp() {
   Auth.initAuth();
   Auth.listenToAuth();
 
+  // دفع الحالة الأولية إلى سجل المتصفح لدعم زر الرجوع
+  window.currentFilter = window.currentFilter || { type: "all", value: null };
+  window.currentParentId = window.currentParentId || null;
+  window.pushAppState(window.currentFilter, window.currentParentId);
   // إخفاء واجهة التحميل (Loader) لضمان ظهور الموقع للمستخدم
   const loader = document.getElementById("app-loader");
   if (loader) loader.classList.add("hidden");
@@ -615,54 +580,32 @@ function listenToProducts() {
   });
 }
 
-// --- إدارة قسم الفيديوهات الممولة ---
-window.closeSponsoredVideos = function() {
-    const wrapper = document.getElementById("sponsored-videos-wrapper");
-    if (wrapper) wrapper.classList.add("hidden");
-    // حفظ حالة الإغلاق في الجلسة الحالية فقط لتظهر مرة أخرى عند إعادة التحميل، 
-    // أو في localStorage إذا كان المطلوب إخفاؤها دائماً.
-    // سنستخدم sessionStorage لضمان ظهورها في كل زيارة جديدة.
-    sessionStorage.setItem("sponsored_videos_closed", "true");
-};
-
 let promoAutoScrollInterval;
 
 function listenToPromotions() {
     const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
     return window.firestoreUtils.onSnapshot(ref, (snap) => {
         const promos = snap.docs.map(doc => doc.data());
-        const wrapper = document.getElementById("sponsored-videos-wrapper");
         const container = document.getElementById("promos-client-container");
+        if (!container) return;
         
-        if (!wrapper || !container) return;
-
-        // التحقق مما إذا كان المستخدم قد أغلق القسم في هذه الجلسة
-        const isClosed = sessionStorage.getItem("sponsored_videos_closed") === "true";
-        
-        if (promos.length === 0 || isClosed) {
-            wrapper.classList.add("hidden");
+        if (promos.length === 0) {
+            container.classList.add("hidden");
             return;
         }
         
-        wrapper.classList.remove("hidden");
-        container.innerHTML = promos.map((p, idx) => `
-            <div class="min-w-[85vw] sm:min-w-[300px] aspect-video rounded-3xl overflow-hidden shadow-xl bg-black relative group border border-slate-100 snap-center transition-all duration-300 hover:shadow-emerald-100">
-                <iframe src="${p.embedUrl}" class="w-full h-full pointer-events-auto" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                <div class="absolute top-3 left-3 bg-red-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg z-10 animate-pulse">LIVE / SPONSORED</div>
-                <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
-                    <p class="text-white text-xs font-black truncate">${p.title || "فيديو ممول"}</p>
+        container.classList.remove("hidden");
+        container.innerHTML = promos.map(p => `
+            <div class="min-w-[90vw] sm:min-w-[100%] h-[250px] sm:h-[450px] rounded-[2.5rem] sm:rounded-[3.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] bg-black relative group border border-white/10 snap-center transition-transform duration-500">
+                <iframe src="${p.embedUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-10 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none">
+                    <p class="text-white text-base sm:text-2xl font-black drop-shadow-2xl translate-y-2 group-hover:translate-y-0 transition-transform duration-300">${p.title}</p>
                 </div>
             </div>
         `).join("");
 
-        if (window.lucide) lucide.createIcons();
-
-        // تفعيل ميزة التمرير التلقائي فقط إذا كان هناك أكثر من فيديو
-        if (promos.length > 1) {
-            startPromoAutoCycle(container);
-        } else if (promoAutoScrollInterval) {
-            clearInterval(promoAutoScrollInterval);
-        }
+        // تفعيل ميزة التمرير التلقائي
+        startPromoAutoCycle(container);
     });
 }
 
@@ -837,19 +780,21 @@ window.filterByCategory = function (catId, catName) {
     if (window.lucide) lucide.createIcons();
   }
   window.renderProducts(filtered);
+  window.pushAppState(window.currentFilter, window.currentParentId); // Push state after filtering
 };
 
 window.handleCategoryClick = function (catId, catName, hasSubs) {
-  window.pushNavigationState("category", { catId, catName, hasSubs });
   if (hasSubs) {
     window.currentParentId = catId;
     window.currentFilter = { type: "category", id: catId, name: catName }; // Set filter context
     window.renderCategories(); // Updates top bar
     window.renderSubcategoriesInMainGrid(catId); // Show subcategories in main grid
+    window.pushAppState(window.currentFilter, window.currentParentId); // Push state here
   } else {
     // If it's a leaf category, just filter and render products
     window.currentParentId = catId; // Keep track of the current leaf category
     window.filterByCategory(catId, catName); // This will call renderProducts
+    // filterByCategory will push state, so no need to push here
   }
 };
 
@@ -880,6 +825,7 @@ window.navigateBackCategories = function () {
   }
 
   if (window.lucide) lucide.createIcons();
+  window.pushAppState(window.currentFilter, window.currentParentId); // Push state after navigating back
 };
 
 window.searchProducts = function (term) {
@@ -887,7 +833,15 @@ window.searchProducts = function (term) {
   window.currentRenderLimit = window.itemsPerPage;
   if (!term || term.trim() === "")
     return window.renderProducts(window.products);
-
+  
+  if (!term || term.trim() === "") {
+    window.currentFilter = { type: "all", value: null }; // Reset to all
+    window.currentParentId = null; // Reset parentId for 'all'
+    window.renderSubcategoriesInMainGrid(null); // Show default homepage view
+    const titleElem = document.getElementById("current-category-title");
+    if (titleElem) { titleElem.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`; if (window.lucide) lucide.createIcons(); }
+  }
+  
   const searchTerms = window.normalizeArabic(term).split(/\s+/).filter(Boolean);
 
   const filtered = window.products.filter((p) => {
@@ -908,11 +862,31 @@ window.searchProducts = function (term) {
   window.renderProducts(filtered);
 };
 
+window.loadMoreProducts = function () {
+  window.currentRenderLimit += window.itemsPerPage;
+  window.renderProducts(window.lastRenderedProducts);
+
+  // سكرول بسيط للأسفل لرؤية المنتجات الجديدة
+  window.scrollBy({ top: 300, behavior: "smooth" });
+};
 
 window.filterByStatus = function (status) {
-  window.currentFilter = { type: "status", value: status };
-  if (status === "all") return window.renderProducts(window.products);
-  const filtered = window.products.filter((p) => p.status === status);
+  window.currentFilter = { type: "status", value: status }; // Set filter type
+  if (status === "all") {
+    window.currentFilter = { type: "all", value: null }; // Reset to all
+    window.currentParentId = null; // Reset parentId for 'all'
+    window.renderSubcategoriesInMainGrid(null); // Show default homepage view
+    const title = document.getElementById("current-category-title");
+    if (title) { title.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`; if (window.lucide) lucide.createIcons(); }
+  } else {
+    const filtered = window.products.filter((p) => p.status === status);
+    const title = document.getElementById("current-category-title");
+    if (title) {
+      const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+      title.innerHTML = `${backBtn} <i data-lucide="filter" class="w-5 h-5 text-emerald-500"></i> تصفية حسب: ${status}`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
   window.renderProducts(filtered);
 };
 
@@ -1108,6 +1082,38 @@ const initInterval = setInterval(() => {
   }
 }, 100);
 
+// معالج حدث popstate لدعم زر الرجوع في المتصفح/الهاتف
+window.addEventListener('popstate', (event) => {
+  if (event.state && event.state.filter && event.state.parentId !== undefined) {
+    // استعادة الحالة من سجل المتصفح
+    window.currentFilter = event.state.filter;
+    window.currentParentId = event.state.parentId;
+
+    // إعادة عرض الواجهة بناءً على الحالة المستعادة
+    window.renderCategories(); // تحديث الأقسام في الشريط العلوي
+    window.applyCurrentFilter(); // تطبيق الفلتر الحالي (سواء منتجات أو أقسام فرعية)
+    
+    // تحديث عنوان القسم الحالي
+    const title = document.getElementById("current-category-title");
+    if (title) {
+      if (window.currentFilter.type === "all") {
+        title.innerHTML = `<i data-lucide="layers" class="w-5 h-5 text-[#1B4332]"></i> تصفح الأقسام الشاملة`;
+      } else if (window.currentFilter.type === "category") {
+        const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+        const catName = window.currentFilter.name || "الأقسام الفرعية";
+        title.innerHTML = `${backBtn} <i data-lucide="folder" class="w-5 h-5 text-[#1B4332]"></i> ${catName}`;
+      } else if (window.currentFilter.type === "search") {
+        const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+        title.innerHTML = `${backBtn} <i data-lucide="search" class="w-5 h-5 text-emerald-500"></i> نتائج البحث: ${window.currentFilter.value}`;
+      } else if (window.currentFilter.type === "status") {
+        const backBtn = `<button onclick="window.navigateBackCategories()" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors shadow-sm ml-2" title="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>`;
+        title.innerHTML = `${backBtn} <i data-lucide="filter" class="w-5 h-5 text-emerald-500"></i> تصفية حسب: ${window.currentFilter.value}`;
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+});
+
 const exposed = {
   ...Auth,
   ...UI,
@@ -1162,10 +1168,10 @@ Object.entries(exposed).forEach(([name, fn]) => {
       }
     }
 
-    /* شاشات كبيرة: 4 منتجات في الصف (طلب المستخدم) */
+    /* شاشات كبيرة: 5 منتجات في الصف لزيادة الكفاءة */
     @media (min-width: 1024px) {
       #products-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
         gap: 20px !important;
       }
     }

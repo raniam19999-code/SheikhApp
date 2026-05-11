@@ -24,10 +24,6 @@ function safeCreateIcons() {
 }
 
 export function showTab(id) {
-  if (id !== "home" && window.pushNavigationState) {
-    window.pushNavigationState("tab", { tabId: id });
-  }
-
   if (id === "checkout" && (!window.currentUser || window.currentUser.isAnonymous)) {
     if (window.showLoginModal) {
       window.showLoginModal();
@@ -249,6 +245,7 @@ export function navigateBack() {
   window.currentParentId = null;
   window.activeSubCategoryName = null;
 
+  window.currentFilter = { type: "all", value: null }; // Ensure filter is reset
   const title = document.getElementById("current-category-title");
   if (title) {
     title.innerHTML = `<i data-lucide="grid" class="w-5 h-5 text-[#1B4332]"></i> قائمة المنتجات`;
@@ -258,6 +255,10 @@ export function navigateBack() {
   if (typeof window.renderSubcategoriesInMainGrid === "function")
     window.renderSubcategoriesInMainGrid(null); // Show default subcategories in main grid
 
+  // Push this reset state to history
+  if (typeof window.pushAppState === "function") {
+    window.pushAppState(window.currentFilter, window.currentParentId);
+  }
   safeCreateIcons();
 }
 

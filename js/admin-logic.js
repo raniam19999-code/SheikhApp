@@ -21,7 +21,7 @@ function superClean(text) {
     .replace(/[أإآ]/g, "ا")
     .replace(/ة/g, "ه")
     .replace(/[ىئ]/g, "ي")
-    .replace(/[^\u0621-\u064A0-9a-zA-Z]/g, '')
+    .replace(/[^\u0621-\u064A0-9a-zA-Z]/g, '') 
     .trim();
 }
 
@@ -66,7 +66,7 @@ function findValByParts(obj, parts) {
   if (parts.includes("سعر") || parts.includes("السعر") || parts.includes("Price")) {
     // استبعاد الأعمدة التي من المستحيل أن تكون هي السعر (مثل الكمية، الكود، التليفون)
     const skipList = [
-      "مخزون", "كميه", "qty", "quantity", "كود", "sku", "id", "الرمز", "تلفون", "وحدة"
+        "مخزون", "كميه", "qty", "quantity", "كود", "sku", "id", "الرمز", "تلفون", "وحدة"
     ];
 
     for (const k of keys.filter(
@@ -110,7 +110,6 @@ export function closeModals() {
 window.closeModals = closeModals;
 
 export function openProductModal(product = null) {
-  if (window.pushNavigationState) window.pushNavigationState("modal", { modalId: "product-modal" });
   window.editingId = product ? product.id : null;
   document.getElementById("modal-p-title").innerText = product
     ? "تعديل منتج"
@@ -168,11 +167,11 @@ export function openProductModal(product = null) {
 
   // تطبيق قيود إضافية برمجية فور فتح المودال
   if (window.currentUserRole === 'editor') {
-    const fieldsToLock = ['p-name', 'p-cat', 'p-sku', 'p-qty', 'p-min', 'p-unit'];
-    fieldsToLock.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = true;
-    });
+      const fieldsToLock = ['p-name', 'p-cat', 'p-sku', 'p-qty', 'p-min', 'p-unit'];
+      fieldsToLock.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = true;
+      });
   }
   if (window.applyUIPermissions) window.applyUIPermissions();
 }
@@ -196,7 +195,7 @@ export async function saveProduct() {
 
   const data = {
     name,
-    price: Number(pricing.price),
+    price: Number(pricing.price), 
     categoryId,
     category: categoryObj ? categoryObj.name : "عام",
     unitMeasurement: unit, // تم التوحيد مع نظام جلب البيانات
@@ -206,21 +205,21 @@ export async function saveProduct() {
     ...pricing,
     updatedAt: window.firestoreUtils.serverTimestamp(),
   };
-
-  // تأمين النظام: إذا لم يكن سوبر أدمن أو مراجع، يتم إرسال المنتج للمراجعة
-  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-    data.isApproved = false;
-    data.status = 'pending_review';
-
-    // للمحرر: لا نقبل تغيير الاسم أو القسم أو الوحدة برمجياً لزيادة الأمان
-    if (window.currentUserRole === 'editor') {
-      delete data.name;
-      delete data.categoryId;
-      delete data.unitMeasurement;
+  
+    // تأمين النظام: إذا لم يكن سوبر أدمن أو مراجع، يتم إرسال المنتج للمراجعة
+    if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+      data.isApproved = false;
+      data.status = 'pending_review';
+      
+      // للمحرر: لا نقبل تغيير الاسم أو القسم أو الوحدة برمجياً لزيادة الأمان
+      if (window.currentUserRole === 'editor') {
+          delete data.name;
+          delete data.categoryId;
+          delete data.unitMeasurement;
+      }
+    } else {
+      data.isApproved = true;
     }
-  } else {
-    data.isApproved = true;
-  }
 
   const productsRef = window.firestoreUtils.collection(
     window.db,
@@ -292,7 +291,6 @@ export async function saveProduct() {
 window.saveProduct = saveProduct;
 
 export function openCategoryModal(cat = null) {
-  if (window.pushNavigationState) window.pushNavigationState("modal", { modalId: "category-modal" });
   window.editingId = cat ? cat.id : null;
   document.getElementById("c-name").value = cat ? cat.name : "";
   document.getElementById("c-img-base64").value = cat ? cat.img || "" : "";
@@ -314,10 +312,10 @@ export function openCategoryModal(cat = null) {
 
   // قفل الحقول للمحرر (يغير الصور فقط)
   if (window.currentUserRole === 'editor') {
-    const nameField = document.getElementById("c-name");
-    const parentField = document.getElementById("c-parent");
-    if (nameField) nameField.disabled = true;
-    if (parentField) parentField.disabled = true;
+      const nameField = document.getElementById("c-name");
+      const parentField = document.getElementById("c-parent");
+      if (nameField) nameField.disabled = true;
+      if (parentField) parentField.disabled = true;
   }
 }
 window.openCategoryModal = openCategoryModal;
@@ -335,8 +333,8 @@ export async function saveCategory() {
   };
 
   if (window.currentUserRole !== 'editor') {
-    data.name = name;
-    data.parentId = parentId;
+      data.name = name;
+      data.parentId = parentId;
   }
   const ref = window.firestoreUtils.collection(
     window.db,
@@ -366,7 +364,7 @@ export async function saveCategory() {
       await window.firestoreUtils.addDoc(ref, data);
       const msg = window.currentUserRole === 'admin' ? "تم إضافة القسم بنجاح" : "تم إضافة القسم بنجاح بانتظار المراجعة";
       window.showToast(msg, "success");
-
+      
       // إشعار للمدير
       if (window.currentUserRole !== 'admin') {
         await window.firestoreUtils.addDoc(
@@ -480,7 +478,7 @@ export function renderAdminProducts(productsToRender = window.products) {
     ${html}
   `;
   if (window.lucide) lucide.createIcons();
-
+  
   // تأكيد تطبيق الصلاحيات (مثل إخفاء أزرار الحذف) بعد كل عملية رندرة
   if (typeof window.applyUIPermissions === "function") window.applyUIPermissions();
 }
@@ -490,7 +488,7 @@ window.renderAdminProducts = renderAdminProducts;
  * handleAdminSearch: محرك البحث الذكي والشامل للمدير
  * يتيح البحث المتقاطع في المنتجات (اسم، كود) والطلبات (رقم، عميل، هاتف، محتوى)
  */
-window.handleAdminSearch = function (term) {
+window.handleAdminSearch = function(term) {
   const products = window.products || [];
   const orders = window.allAdminOrders || [];
 
@@ -519,7 +517,7 @@ window.handleAdminSearch = function (term) {
     const oName = normalizeArabic(o.customerName || "");
     const oPhone = (o.customerPhone || "").toLowerCase();
     const oItems = (o.items || []).map(i => `${normalizeArabic(i.productName || i.name || "")} ${(i.sku || "").toLowerCase()}`).join(" ");
-
+    
     const combinedOrderText = `${oNum} ${oName} ${oPhone} ${oItems}`;
     return keywords.every(k => combinedOrderText.includes(k));
   });
@@ -527,7 +525,7 @@ window.handleAdminSearch = function (term) {
   if (typeof window.renderOrdersList === "function") {
     window.renderOrdersList(filteredOrders, "admin-o-list", true);
   }
-
+  
   // التمرير لأعلى لعرض النتائج بوضوح
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
@@ -732,7 +730,7 @@ export async function deleteCategory(id) {
       if (typeof window.renderAdminCategories === "function") window.renderAdminCategories();
       if (typeof window.renderCategories === "function") window.renderCategories();
     }
-
+    
     await window.firestoreUtils.deleteDoc(
       window.firestoreUtils.doc(
         window.db,
@@ -755,10 +753,10 @@ window.deleteCategory = deleteCategory;
 export function showAdminSubTab(tab) {
   // منع الدخول للتبويبات غير المصرح بها
   if (window.currentUserRole !== 'admin') {
-    const roleTabs = {
-      importer: ['import'], editor: ['p', 'banners'], inventory: ['i'], creator: ['p'], reviewer: ['p', 'review']
-    };
-    if (!roleTabs[window.currentUserRole] || !roleTabs[window.currentUserRole].includes(tab)) return;
+      const roleTabs = {
+          importer: ['import'], editor: ['p', 'banners'], inventory: ['i'], creator: ['p'], reviewer: ['p', 'review']
+      };
+      if (!roleTabs[window.currentUserRole] || !roleTabs[window.currentUserRole].includes(tab)) return;
   }
 
   const tabs = ["p", "c", "o", "i", "promo", "import", "bot", "review", "staff"];
@@ -791,10 +789,10 @@ export function showAdminSubTab(tab) {
     // إذا كانت حاوية البوت فارغة، نقوم ببناء الواجهة الأساسية لها
     const botList = document.getElementById("admin-bot-list");
     if (botList && botList.innerHTML.trim() === "") {
-      if (typeof window.renderAdminBotUI === "function") window.renderAdminBotUI();
+        if (typeof window.renderAdminBotUI === "function") window.renderAdminBotUI();
     }
     if (typeof window.renderBotResponses === "function") {
-      window.renderBotResponses();
+        window.renderBotResponses();
     }
   }
 
@@ -806,27 +804,27 @@ window.showAdminSubTab = showAdminSubTab;
 
 // رندرة قائمة الموظفين (المسؤولين)
 export async function renderStaffManagement() {
-  const list = document.getElementById("admin-staff-list");
-  if (!list) return;
+    const list = document.getElementById("admin-staff-list");
+    if (!list) return;
 
-  list.innerHTML = `<div class="p-10 text-center"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-emerald-500"></i></div>`;
-  if (window.lucide) lucide.createIcons();
+    list.innerHTML = `<div class="p-10 text-center"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-emerald-500"></i></div>`;
+    if (window.lucide) lucide.createIcons();
 
-  try {
-    // جلب البيانات من مسار staff المخصص
-    const staffRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "staff");
-    const snap = await window.firestoreUtils.getDocs(staffRef);
+    try {
+        // جلب البيانات من مسار staff المخصص
+        const staffRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "staff");
+        const snap = await window.firestoreUtils.getDocs(staffRef);
+        
+        const staff = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        if (staff.length === 0) {
+            list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لم تقم بتعيين أي مسؤولين بعد</div>`;
+            return;
+        }
 
-    const staff = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const roleLabels = window.RBAC_LABELS || { admin: "مدير عام النظام", importer: "مسؤول استيراد البيانات", editor: "محرر الوسائط والصور", inventory: "مراقب المخزون", creator: "مدخل بيانات منتجات", reviewer: "مراجع جودة وتعديلات" };
 
-    if (staff.length === 0) {
-      list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لم تقم بتعيين أي مسؤولين بعد</div>`;
-      return;
-    }
-
-    const roleLabels = window.RBAC_LABELS || { admin: "مدير عام النظام", importer: "مسؤول استيراد البيانات", editor: "محرر الوسائط والصور", inventory: "مراقب المخزون", creator: "مدخل بيانات منتجات", reviewer: "مراجع جودة وتعديلات" };
-
-    list.innerHTML = `
+        list.innerHTML = `
             <div class="space-y-4">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="font-black text-slate-800">طاقم العمل والمسؤولين (${staff.length})</h3>
@@ -857,29 +855,29 @@ export async function renderStaffManagement() {
                 `).join("")}
             </div>
         `;
-    if (window.lucide) lucide.createIcons();
-  } catch (e) {
-    list.innerHTML = `<div class="p-10 text-center text-red-500 font-bold">فشل تحميل قائمة الطاقم</div>`;
-  }
+        if (window.lucide) lucide.createIcons();
+    } catch (e) {
+        list.innerHTML = `<div class="p-10 text-center text-red-500 font-bold">فشل تحميل قائمة الطاقم</div>`;
+    }
 }
 
 // رندرة قائمة المنتجات التي تنتظر المراجعة
 export function renderAdminReviewQueue() {
-  const list = document.getElementById("admin-review-list");
-  if (!list) return;
+    const list = document.getElementById("admin-review-list");
+    if (!list) return;
+    
+    const pendingProducts = window.products.filter(p => p.isApproved === false);
+    const pendingCategories = window.categories.filter(c => c.isApproved === false);
+    
+    if (pendingProducts.length === 0 && pendingCategories.length === 0) {
+        list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات أو أقسام تنتظر المراجعة حالياً ✅</div>`;
+        return;
+    }
+    
+    let html = `<div class="space-y-6">`;
 
-  const pendingProducts = window.products.filter(p => p.isApproved === false);
-  const pendingCategories = window.categories.filter(c => c.isApproved === false);
-
-  if (pendingProducts.length === 0 && pendingCategories.length === 0) {
-    list.innerHTML = `<div class="p-10 text-center text-slate-400 font-bold">لا توجد منتجات أو أقسام تنتظر المراجعة حالياً ✅</div>`;
-    return;
-  }
-
-  let html = `<div class="space-y-6">`;
-
-  if (pendingCategories.length > 0) {
-    html += `
+    if (pendingCategories.length > 0) {
+        html += `
             <div>
                 <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="folder" class="w-5 h-5 text-amber-500"></i> أقسام جديدة (${pendingCategories.length})</h3>
                 <div class="space-y-3">
@@ -901,10 +899,10 @@ export function renderAdminReviewQueue() {
                 </div>
             </div>
         `;
-  }
+    }
 
-  if (pendingProducts.length > 0) {
-    html += `
+    if (pendingProducts.length > 0) {
+        html += `
             <div>
                 <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-amber-500"></i> منتجات جديدة (${pendingProducts.length})</h3>
                 <div class="space-y-3">
@@ -926,47 +924,47 @@ export function renderAdminReviewQueue() {
                 </div>
             </div>
         `;
-  }
+    }
 
-  html += `</div>`;
-  list.innerHTML = html;
-  if (window.lucide) lucide.createIcons();
+    html += `</div>`;
+    list.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
 }
 window.renderAdminReviewQueue = renderAdminReviewQueue;
 
-window.approveCategory = async function (id) {
-  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-    return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
-  }
-  try {
-    const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "categories", id);
-    await window.firestoreUtils.updateDoc(ref, {
-      isApproved: true,
-      approvedAt: window.firestoreUtils.serverTimestamp()
-    });
-    window.showToast("تم اعتماد القسم ونشره", "success");
-  } catch (e) {
-    window.showToast("فشل في الاعتماد", "error");
-  }
+window.approveCategory = async function(id) {
+    if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+        return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
+    }
+    try {
+        const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "categories", id);
+        await window.firestoreUtils.updateDoc(ref, {
+            isApproved: true,
+            approvedAt: window.firestoreUtils.serverTimestamp()
+        });
+        window.showToast("تم اعتماد القسم ونشره", "success");
+    } catch (e) {
+        window.showToast("فشل في الاعتماد", "error");
+    }
 };
 
-window.approveProduct = async function (id) {
-  if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
-    return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
-  }
-  try {
-    const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", id);
-    await window.firestoreUtils.updateDoc(ref, {
-      isApproved: true,
-      status: 'available',
-      approvedAt: window.firestoreUtils.serverTimestamp()
+window.approveProduct = async function(id) {
+    if (window.currentUserRole !== 'admin' && window.currentUserRole !== 'reviewer') {
+        return window.showToast("عفواً، الاعتماد مخصص للمراجع والمدير العام فقط", "error");
+    }
+    try {
+        const ref = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "products", id);
+        await window.firestoreUtils.updateDoc(ref, {
+            isApproved: true,
+            status: 'available',
+            approvedAt: window.firestoreUtils.serverTimestamp()
 
 
-    });
-    window.showToast("تم اعتماد المنتج ونشره للزبائن", "success");
-  } catch (e) {
-    window.showToast("فشل في الاعتماد", "error");
-  }
+        });
+        window.showToast("تم اعتماد المنتج ونشره للزبائن", "success");
+    } catch (e) {
+        window.showToast("فشل في الاعتماد", "error");
+    }
 };
 
 // رندرة واجهة الاستيراد المخصصة
@@ -1010,10 +1008,10 @@ export function renderAdminImportTools() {
  * إدارة الفيديوهات الترويجية (Promo Videos)
  */
 export function renderAdminPromoTools() {
-  const list = document.getElementById("admin-promo-list");
-  if (!list) return;
+    const list = document.getElementById("admin-promo-list");
+    if (!list) return;
 
-  list.innerHTML = `
+    list.innerHTML = `
         <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm animate-fade-in space-y-6">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shadow-inner">
@@ -1041,12 +1039,12 @@ export function renderAdminPromoTools() {
             </div>
         </div>
     `;
-  if (window.lucide) lucide.createIcons();
-  if (window.promosAdminUnsub) window.promosAdminUnsub();
-  window.promosAdminUnsub = renderPromosAdminList();
-  const bannerContainer = document.createElement("div");
-  bannerContainer.className = "bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm animate-fade-in mt-6";
-  bannerContainer.innerHTML = `
+    if (window.lucide) lucide.createIcons();
+    if (window.promosAdminUnsub) window.promosAdminUnsub();
+    window.promosAdminUnsub = renderPromosAdminList();
+    const bannerContainer = document.createElement("div");
+    bannerContainer.className = "bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm animate-fade-in mt-6";
+    bannerContainer.innerHTML = `
         <div class="flex items-center gap-3 mb-6">
             <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
                 <i data-lucide="image" class="w-6 h-6"></i>
@@ -1058,70 +1056,70 @@ export function renderAdminPromoTools() {
         </div>
         <div id="admin-banners-list" class="space-y-4"></div>
     `;
-  list.appendChild(bannerContainer);
-  if (window.lucide) lucide.createIcons();
-  if (typeof window.renderAdminBannersList === "function") window.renderAdminBannersList();
+    list.appendChild(bannerContainer);
+    if (window.lucide) lucide.createIcons();
+    if (typeof window.renderAdminBannersList === "function") window.renderAdminBannersList();
 }
 
 function getEmbedUrl(url) {
-  if (!url) return "";
-  try {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      let id = "";
-      if (url.includes('v=')) { id = url.split('v=')[1].split('&')[0]; }
-      else if (url.includes('shorts/')) { id = url.split('shorts/')[1].split('?')[0]; }
-      else { id = url.split('/').pop().split('?')[0]; }
-      return `https://www.youtube.com/embed/${id}?controls=0&modestbranding=1&rel=0&showinfo=0&fs=0&iv_load_policy=3`;
-    } else if (url.includes('tiktok.com')) {
-      const idMatch = url.match(/\/video\/(\d+)/);
-      const id = idMatch ? idMatch[1] : url.split('/').pop().split('?')[0];
-      return `https://www.tiktok.com/embed/v2/${id}?hide_more=1&hide_text=1`;
-    } else if (url.includes('facebook.com')) {
-      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=auto`;
-    } else if (url.includes('instagram.com')) {
-      const baseUrl = url.split('?')[0];
-      return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}embed/captioned=false`;
-    }
-  } catch (e) { console.error("URL Parse error", e); }
-  return url;
+    if (!url) return "";
+    try {
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            let id = "";
+            if (url.includes('v=')) { id = url.split('v=')[1].split('&')[0]; }
+            else if (url.includes('shorts/')) { id = url.split('shorts/')[1].split('?')[0]; }
+            else { id = url.split('/').pop().split('?')[0]; }
+            return `https://www.youtube.com/embed/${id}?controls=0&modestbranding=1&rel=0&showinfo=0&fs=0&iv_load_policy=3`;
+        } else if (url.includes('tiktok.com')) {
+            const idMatch = url.match(/\/video\/(\d+)/);
+            const id = idMatch ? idMatch[1] : url.split('/').pop().split('?')[0];
+            return `https://www.tiktok.com/embed/v2/${id}?hide_more=1&hide_text=1`;
+        } else if (url.includes('facebook.com')) {
+            return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=auto`;
+        } else if (url.includes('instagram.com')) {
+            const baseUrl = url.split('?')[0];
+            return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}embed/captioned=false`;
+        }
+    } catch (e) { console.error("URL Parse error", e); }
+    return url;
 }
 
-window.savePromoVideo = async function () {
-  const url = document.getElementById('promo-url').value.trim();
-  const title = document.getElementById('promo-title').value.trim();
+window.savePromoVideo = async function() {
+    const url = document.getElementById('promo-url').value.trim();
+    const title = document.getElementById('promo-title').value.trim();
+    
+    if (!url) return window.showToast("يرجى إدخال الرابط", "warning");
 
-  if (!url) return window.showToast("يرجى إدخال الرابط", "warning");
+    const promoData = {
+        title: title || "عرض جديد",
+        originalUrl: url,
+        embedUrl: getEmbedUrl(url),
+        createdAt: window.firestoreUtils.serverTimestamp()
+    };
 
-  const promoData = {
-    title: title || "عرض جديد",
-    originalUrl: url,
-    embedUrl: getEmbedUrl(url),
-    createdAt: window.firestoreUtils.serverTimestamp()
-  };
-
-  try {
-    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
-    await window.firestoreUtils.addDoc(ref, promoData);
-    window.showToast("تم نشر الإعلان بنجاح", "success");
-    document.getElementById('promo-url').value = '';
-    document.getElementById('promo-title').value = '';
-  } catch (e) {
-    window.showToast("خطأ في الحفظ", "error");
-  }
+    try {
+        const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+        await window.firestoreUtils.addDoc(ref, promoData);
+        window.showToast("تم نشر الإعلان بنجاح", "success");
+        document.getElementById('promo-url').value = '';
+        document.getElementById('promo-title').value = '';
+    } catch (e) {
+        window.showToast("خطأ في الحفظ", "error");
+    }
 };
 
 function renderPromosAdminList() {
-  const displayList = document.getElementById("promos-display-list");
-  if (!displayList) return null;
+    const displayList = document.getElementById("promos-display-list");
+    if (!displayList) return null;
 
-  const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
-  return window.firestoreUtils.onSnapshot(ref, (snap) => {
-    const promos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    if (promos.length === 0) {
-      displayList.innerHTML = `<p class="col-span-full text-center text-slate-400 font-bold py-4">لا توجد فيديوهات مضافة</p>`;
-      return;
-    }
-    displayList.innerHTML = promos.map(p => `
+    const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "promotions");
+    return window.firestoreUtils.onSnapshot(ref, (snap) => {
+        const promos = snap.docs.map(doc => ({id: doc.id, ...doc.data()}));
+        if (promos.length === 0) {
+            displayList.innerHTML = `<p class="col-span-full text-center text-slate-400 font-bold py-4">لا توجد فيديوهات مضافة</p>`;
+            return;
+        }
+        displayList.innerHTML = promos.map(p => `
             <div class="relative rounded-3xl overflow-hidden border border-slate-100 shadow-sm group">
                 <iframe src="${p.embedUrl}" class="w-full aspect-video" frameborder="0" allowfullscreen></iframe>
                 <div class="p-3 bg-white flex justify-between items-center">
@@ -1132,15 +1130,15 @@ function renderPromosAdminList() {
                 </div>
             </div>
         `).join("");
-    if (window.lucide) lucide.createIcons();
-  });
+        if (window.lucide) lucide.createIcons();
+    });
 }
 
-window.deletePromoVideo = async function (id) {
-  if (!confirm("حذف الفيديو؟")) return;
-  const docRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "promotions", id);
-  await window.firestoreUtils.deleteDoc(docRef);
-  window.showToast("تم الحذف", "info");
+window.deletePromoVideo = async function(id) {
+    if (!confirm("حذف الفيديو؟")) return;
+    const docRef = window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "promotions", id);
+    await window.firestoreUtils.deleteDoc(docRef);
+    window.showToast("تم الحذف", "info");
 };
 
 // 1. استيراد ومعالجة ملف الإكسل (Bulk Upload)
@@ -1217,7 +1215,7 @@ window.handleBulkImportFileUpload = handleBulkImportFileUpload;
 
 export async function smartRowBasedUpdate(rows) {
   const productsRef = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "products");
-
+  
   const BATCH_SIZE = 400; // تم الإرجاع لـ 400 كما طلبت لضمان الدقة العالية
   const DELAY_MS = 1000; // إبطاء طفيف لضمان ثبات العمليات الضخمة
 
@@ -1237,7 +1235,7 @@ export async function smartRowBasedUpdate(rows) {
     if (nKey) productMap.set("n_" + nKey, p);
     if (sKey) {
       productMap.set("s_" + sKey, p);
-      productMap.set("s_" + sKey.replace(/^0+/, ""), p);
+      productMap.set("s_" + sKey.replace(/^0+/, ""), p); 
     }
   });
 
@@ -1260,7 +1258,7 @@ export async function smartRowBasedUpdate(rows) {
     if (i % 50 === 0 || i === rows.length - 1) {
       window.updateProgress(progressId, i + 1, rows.length);
     }
-
+    
     try {
       // === الخطوة الأولى: تنظيف أسماء الأعمدة من المسافات الزائدة (مشكلة الشيت الأصلي) ===
       const rawRow = rows[i];
@@ -1284,7 +1282,7 @@ export async function smartRowBasedUpdate(rows) {
 
       const categoryRaw = row["المجموعه"] || row["التصنيف"] || row["القسم"] || findValByParts(row, ["المجموعه", "التصنيف", "القسم"]);
       const category = categoryRaw ? String(categoryRaw).trim() : null;
-
+      
       const price = parseExcelNumber(row["سعر الجملة"] || row["السعر"] || row["سعر"] || findValByParts(row, ["سعر الجملة", "السعر", "سعر"]));
       const unit = "قطعة";
 
@@ -1445,12 +1443,12 @@ export async function smartRowBasedUpdate_Legacy(rows) { ... }
 
 //   for (let i = 0; i < rows.length; i++) {
 //     const row = rows[i];
-
+    
 //     // عرض تقدم العملية كل 200 صف
 //     if (i % 200 === 0 && i > 0) {
 //       window.showNotification(`جاري المعالجة...  ${i} / ${rows.length} صنف`);
 //     }
-
+    
 //     try {
 //       const r = {};
 //       Object.keys(row).forEach((k) => (r[k.trim()] = row[k]));
@@ -1539,7 +1537,7 @@ export async function smartRowBasedUpdate_Legacy(rows) { ... }
 //         batch.set(docRef, newProduct);
 //         opCount++;
 //         created++;
-
+        
 //         // إضافته للماب فوراً لتجنب التكرار إذا كان متواجداً مرتين في نفس الملف
 //         if (normName) productMap.set(normName, newProduct);
 //         if (normSku) productMap.set(normSku, newProduct);
@@ -1560,7 +1558,7 @@ export async function smartRowBasedUpdate_Legacy(rows) { ... }
 //   await commitBatch();
 
 //   window.isBulkUploading = false;
-
+  
 //   // إخفاء الـ Notification القديمة وإظهار ملخص العملية
 //   const notificationBox = document.getElementById("toast-container");
 //   if (notificationBox) notificationBox.innerHTML = ""; 
@@ -1589,10 +1587,10 @@ export async function smartRowBasedUpdate_Legacy(rows) { ... }
 
 // الدوال المساعدة (تأكد أنها موجودة في ملفك كما هي)
 
-// إعادة إنعاش البيانات في الموقع
-setTimeout(() => {
-  if (window.refreshAllData) window.refreshAllData();
-}, 1500);
+  // إعادة إنعاش البيانات في الموقع
+  setTimeout(() => {
+    if (window.refreshAllData) window.refreshAllData();
+  }, 1500);
 
 
 // دالة تحديث الأسعار المختصرة - الآن تستخدم نفس المحرك القوي
@@ -1608,20 +1606,20 @@ window.processBulkProducts = smartRowBasedUpdate;
 window.updatePricesOnly = updatePricesOnly;
 
 export function openBulkImportModal() {
-  const modal = document.getElementById("bulk-import-modal");
-  if (modal) {
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  }
+    const modal = document.getElementById("bulk-import-modal");
+    if (modal) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+    }
 }
 window.openBulkImportModal = openBulkImportModal;
 
 export function closeBulkImportModal() {
-  const modal = document.getElementById("bulk-import-modal");
-  if (modal) {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-  }
+    const modal = document.getElementById("bulk-import-modal");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
 }
 window.closeBulkImportModal = closeBulkImportModal;
 
@@ -1647,13 +1645,13 @@ export function renderInventoryAudit() {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-50">`;
-  window.products.sort((a, b) => (a.quantity || 0) - (b.quantity || 0)).forEach(p => {
-    const qty = Number(p.quantity || 0);
+  window.products.sort((a,b) => (a.quantity||0) - (b.quantity||0)).forEach(p => {
+    const qty = Number(p.quantity||0);
     html += `
       <tr class="hover:bg-slate-50/30 transition-colors">
         <td class="p-4 max-w-[150px]">
           <p class="font-bold text-slate-800 truncate">${p.name}</p>
-          <p class="text-[10px] text-slate-400 font-mono">SKU: ${p.sku || '-'}</p>
+          <p class="text-[10px] text-slate-400 font-mono">SKU: ${p.sku||'-'}</p>
         </td>
         <td class="p-4 text-center">
           <span class="inline-block px-3 py-1 bg-slate-100 rounded-lg font-black text-lg text-slate-800 shadow-sm border border-slate-200/50">${qty}</span>
@@ -1670,13 +1668,10 @@ export function renderInventoryAudit() {
       </tr>`;
   });
   list.innerHTML = html + `</tbody></table></div></div>`;
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
+  lucide.createIcons();
 }
 
 export function updateCategorySelects() {
-  ذ
   const selects = ["p-cat", "bulk-import-cat"];
   selects.forEach((id) => {
     const el = document.getElementById(id);
@@ -1718,7 +1713,7 @@ export async function saveBulkProducts() {
   if (rows.length === 0) return window.showToast("يرجى إدخال بيانات أو رفع ملف أولاً", "warning");
 
   let filteredRows = rows.filter((row) => {
-    if (keywords.length === 0) return true;
+    if (keywords.length === 0) return true; 
     const name = findValByParts(row, ["اسم الصنف", "الصنف", "الاسم", "البيان", "المنتج", "Product"]);
     const normName = normalizeArabic(name);
     return keywords.some((k) => normName.includes(k));
@@ -1832,20 +1827,20 @@ window.exportAdvancedBusinessReport = function () {
   orders.forEach(order => {
     // نحسب المبيعات من الطلبات المنتهية (تم التسليم) كمبيعات مؤكدة، والطلبات قيد المعالجة أيضاً لأغراض التتبع
     if (order.status !== 'cancelled') {
-      totalCompletedOrders++;
-      totalSalesRevenue += Number(order.totalAmount || 0);
+       totalCompletedOrders++;
+       totalSalesRevenue += Number(order.totalAmount || 0);
 
-      (order.items || []).forEach(item => {
-        let pId = item.productId || item.originalId;
-        const pData = products.find(p => p.id === pId) || { sku: item.sku || "بدون كود" };
-        let key = pData.sku || item.sku || String(pId);
-
-        if (!productSalesMap[key]) {
-          productSalesMap[key] = { sku: key, name: item.productName || pData.name || "عنصر محذوف", soldQty: 0, revenue: 0 };
-        }
-        productSalesMap[key].soldQty += Number(item.orderedQuantity || 0);
-        productSalesMap[key].revenue += (Number(item.orderedQuantity || 0) * Number(item.basePrice || item.price || 0));
-      });
+       (order.items || []).forEach(item => {
+          let pId = item.productId || item.originalId;
+          const pData = products.find(p => p.id === pId) || { sku: item.sku || "بدون كود" };
+          let key = pData.sku || item.sku || String(pId);
+          
+          if (!productSalesMap[key]) {
+            productSalesMap[key] = { sku: key, name: item.productName || pData.name || "عنصر محذوف", soldQty: 0, revenue: 0 };
+          }
+          productSalesMap[key].soldQty += Number(item.orderedQuantity || 0);
+          productSalesMap[key].revenue += (Number(item.orderedQuantity || 0) * Number(item.basePrice || item.price || 0));
+       });
     }
   });
 
@@ -1869,13 +1864,13 @@ window.exportAdvancedBusinessReport = function () {
     "الكمية المباعة": ts.soldQty,
     "إجمالي الإيراد (ج.م)": Number(ts.revenue).toFixed(2)
   }));
-  if (topSellersData.length === 0) topSellersData.push({ "ملاحظة": "لا توجد مبيعات مسجلة حتى الآن" });
+  if(topSellersData.length === 0) topSellersData.push({"ملاحظة": "لا توجد مبيعات مسجلة حتى الآن"});
 
   // الصفحة الثالثة: المخزن الشامل (مخصص لنظام الحسابات كما طلب المالك)
   const inventoryData = products.map((p) => ({
     "كودالصنف": p.sku || "",
     "الصنف": p.name || "",
-    "مخزن": p.warehouseName || "مخزن رئيسي",
+    "مخزن": p.warehouseName || "مخزن رئيسي", 
     "المجموعه": p.category || "عام",
     "رصيد المخزون": Number(p.quantity || 0),
     "سعر الجملة": Number(p.price || 0)
@@ -1891,7 +1886,7 @@ window.exportAdvancedBusinessReport = function () {
       "حد الطلب الأدنى": Number(p.minThreshold || 5),
       "الحالة": Number(p.quantity || 0) <= 0 ? "نفذ تماماً ⚠️" : "كمية حرجة 🟠"
     }));
-  if (shortageData.length === 0) shortageData.push({ "ملاحظة": "المخازن ممتلئة ولا توجد نواقص" });
+  if(shortageData.length === 0) shortageData.push({"ملاحظة": "المخازن ممتلئة ولا توجد نواقص"});
 
   // == إنشاء ورك بوك متكامل وحفظ الإكسل ==
   const wb = XLSX.utils.book_new();
@@ -1920,7 +1915,7 @@ window.updateProductQty = async (id) => {
       "products",
       id,
     ),
-    {
+    { 
       quantity: newQty,
       status: newQty > 0 ? "available" : "out_of_stock"
     }
@@ -1935,27 +1930,27 @@ window.updateProductQty = async (id) => {
 
   window.showNotification("تم تحديث الكمية وتزامن الحالة بنجاح");
 };
-function showToast(msg, type) { if (window.showToast) window.showToast(msg, type); }
+function showToast(msg, type) { if(window.showToast) window.showToast(msg, type); }
 
-window.renderAdminBannersList = async function () {
+window.renderAdminBannersList = async function() {
   const list = document.getElementById("admin-banners-list");
   if (!list) return;
 
   list.innerHTML = `<div class="p-10 text-center"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-emerald-500"></i></div>`;
-  if (window.lucide) window.lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 
   try {
-    const snap = await window.firestoreUtils.getDocs(window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners"));
-    const banners = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      const snap = await window.firestoreUtils.getDocs(window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners"));
+      const banners = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      
+      const addBtn = `<button onclick="window.openBannerModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all mb-4 w-full">+ إضافة بنر جديد</button>`;
+      
+      if (banners.length === 0) {
+          list.innerHTML = addBtn + `<div class="p-10 text-center text-slate-400 font-bold">لا توجد بنرات حالياً</div>`;
+          return;
+      }
 
-    const addBtn = `<button onclick="window.openBannerModal()" class="col-span-full border-2 border-dashed border-slate-200 p-4 rounded-2xl text-slate-400 font-bold text-sm hover:border-emerald-500 hover:text-emerald-500 transition-all mb-4 w-full">+ إضافة بنر جديد</button>`;
-
-    if (banners.length === 0) {
-      list.innerHTML = addBtn + `<div class="p-10 text-center text-slate-400 font-bold">لا توجد بنرات حالياً</div>`;
-      return;
-    }
-
-    list.innerHTML = addBtn + `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">` + banners.map(b => `
+      list.innerHTML = addBtn + `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">` + banners.map(b => `
           <div class="bg-white p-3 rounded-2xl border border-slate-100 flex flex-col gap-3 shadow-sm group">
               <div class="h-32 rounded-xl overflow-hidden bg-slate-50 relative border border-slate-100">
                   <img src="${b.img}" class="w-full h-full object-cover">
@@ -1969,70 +1964,70 @@ window.renderAdminBannersList = async function () {
               </div>
           </div>
       `).join("") + `</div>`;
-    if (window.lucide) lucide.createIcons();
-  } catch (e) {
-    list.innerHTML = `<div class="p-10 text-center text-red-500">فصل في جلب البنرات</div>`;
+      if (window.lucide) lucide.createIcons();
+  } catch(e) {
+      list.innerHTML = `<div class="p-10 text-center text-red-500">فصل في جلب البنرات</div>`;
   }
 };
 
-window.openBannerModal = function (id = null, img = "", link = "") {
+window.openBannerModal = function(id = null, img = "", link = "") {
   window.editingBannerId = id;
   const modal = document.getElementById("banner-modal");
   if (!modal) return;
-
+  
   document.getElementById("banner-img-base64").value = img;
   document.getElementById("banner-link").value = link;
   document.getElementById("banner-img-preview").src = img;
   document.getElementById("banner-img-preview").classList.toggle("hidden", !img);
   document.getElementById("banner-img-placeholder").classList.toggle("hidden", !!img);
-
+  
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 };
 
-window.closeBannerModal = function () {
+window.closeBannerModal = function() {
   document.getElementById("banner-modal").classList.add("hidden");
   document.getElementById("banner-modal").classList.remove("flex");
   window.editingBannerId = null;
 };
 
-window.saveBanner = async function () {
+window.saveBanner = async function() {
   const img = document.getElementById("banner-img-base64").value;
   const link = document.getElementById("banner-link").value.trim();
-
+  
   if (!img) return showToast("يرجى رفع صورة للبنر", "warning");
 
   const data = {
-    img,
-    link,
-    updatedAt: window.firestoreUtils.serverTimestamp()
+      img,
+      link,
+      updatedAt: window.firestoreUtils.serverTimestamp()
   };
 
   const ref = window.firestoreUtils.collection(window.db, "artifacts", window.appId, "public", "data", "banners");
   window.showNotification("جاري حفظ البنر...");
 
   try {
-    if (window.editingBannerId) {
-      await window.firestoreUtils.updateDoc(window.firestoreUtils.doc(ref, window.editingBannerId), data);
-    } else {
-      data.createdAt = window.firestoreUtils.serverTimestamp();
-      await window.firestoreUtils.addDoc(ref, data);
-    }
-    showToast("تم الحفظ بنجاح", "success");
-    window.closeBannerModal();
-    window.renderAdminBannersList();
-  } catch (e) {
-    showToast("خطأ في الحفظ", "error");
+      if (window.editingBannerId) {
+          await window.firestoreUtils.updateDoc(window.firestoreUtils.doc(ref, window.editingBannerId), data);
+      } else {
+          data.createdAt = window.firestoreUtils.serverTimestamp();
+          await window.firestoreUtils.addDoc(ref, data);
+      }
+      showToast("تم الحفظ بنجاح", "success");
+      window.closeBannerModal();
+      window.renderAdminBannersList();
+  } catch(e) {
+      showToast("خطأ في الحفظ", "error");
   }
 };
 
-window.deleteBanner = async function (id) {
+window.deleteBanner = async function(id) {
   if (!confirm("هل أنت متأكد من حذف هذا البنر؟")) return;
   try {
-    await window.firestoreUtils.deleteDoc(window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "banners", id));
-    showToast("تم الحذف بنجاح", "success");
-    window.renderAdminBannersList();
-  } catch (e) {
-    showToast("خطأ في الحذف", "error");
+      await window.firestoreUtils.deleteDoc(window.firestoreUtils.doc(window.db, "artifacts", window.appId, "public", "data", "banners", id));
+      showToast("تم الحذف بنجاح", "success");
+      window.renderAdminBannersList();
+  } catch(e) {
+      showToast("خطأ في الحذف", "error");
   }
 };

@@ -42,64 +42,11 @@ window.getEffectivePrice = function (product, unitType = 'bag') {
    3. عرض بطاقة السعر المزدوج داخل كارت المنتج
    ============================================================ */
 window.renderPriceBlock = function (product) {
-  // دمج الأسعار القديمة والجديدة لضمان عدم ظهور أصفار إذا كانت البيانات ناقصة
-  const pRef = product || { prices: {} };
-  // التأكد من تحويل كائن الأسعار بالكامل لأرقام نظيفة
-  const prices = {};
-  if (pRef.prices) Object.keys(pRef.prices).forEach(k => prices[k] = window.cleanNumber(pRef.prices[k]));
-  
-  const basePrice = window.cleanNumber(pRef.price || pRef.retailPrice || 0);
-
-  // إذا كان سعر الكيس 0 أو غير موجود، نستخدم السعر الأساسي للمنتج كاحتياطي
-  if ((!prices.bag || prices.bag === 0) && basePrice > 0) {
-    prices.bag = basePrice;
-  }
-  
-  // تأمين وجود وحدات للعرض - إذا توفر سعر للكيس نظهر الوحدة فوراً
-  const units = pRef.availableUnits ? { ...pRef.availableUnits } : {};
-  if (prices.bag > 0) units.bag = true;
-  
-  const unitLabels = {
-    bag: { label: 'كيس & شنطة', icon: 'package' },
-    box: { label: 'علبة', icon: 'archive' },
-    carton: { label: 'كرتونة', icon: 'layers' },
-    shrink: { label: 'شرنك', icon: 'grid' },
-    bundle: { label: 'رابطة (Bundle)', icon: 'grip-vertical' },
-    bucket: { label: 'جردل', icon: 'shopping-basket' },
-    tin: { label: 'صفيحة', icon: 'box' }
-  };
-
-  const html = Object.keys(unitLabels).map(unitKey => {
-    const pVal = prices[unitKey] || 0;
-    // إظهار الوحدة فقط إذا كانت مفعلة ولها سعر أكبر من صفر
-    if (!units[unitKey] || pVal <= 0) return '';
-
-    const isActive = unitKey === 'bag'; // افتراضياً الكيس هو النشط
-    return `
-      <button
-        class="unit-selector-btn ${isActive ? 'active-unit bg-[#1B4332] text-white border-[#1B4332]' : 'bg-white text-slate-700 border-slate-200'} border px-2 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center gap-1.5 hover:border-[#1B4332] shadow-sm grow justify-center touch-manipulation"
-        onclick="updateProductUnitSelection('${product.id}', '${unitKey}', ${pVal}, event)"
-      >
-        <i data-lucide="${unitLabels[unitKey].icon}" class="w-3 h-3 sm:w-4 sm:h-4 opacity-70"></i>
-        <div class="flex flex-col items-start leading-tight">
-          ${unitKey === 'bag' ? '' : `<span class="text-[7px] sm:text-[8px] opacity-60">${unitLabels[unitKey].label}</span>`}
-          <span class="text-[11px] sm:text-[13px] font-black">${pVal.toFixed(2)} <span class="text-[7px] ${isActive ? 'text-white/70' : 'text-emerald-600'}">EGP</span></span>
-        </div>
-      </button>
-    `;
-  }).join('');
-
-  // إذا لم يتم توليد أي أزرار أو كان السعر الظاهر "صفر" - نظهر السعر الأساسي كخيار أخير
-  if (!html || html.trim() === "" || Object.values(prices).every(v => v <= 0)) {
-    // إذا لم تكن هناك وحدات مفعلة، نظهر السعر الأساسي للمنتج بشكل بارز جداً
-    const finalDisplayPrice = basePrice > 0 ? basePrice : 0;
-    return `<div class="flex items-center justify-between bg-emerald-50/60 p-2 sm:p-3 rounded-xl border border-emerald-100 w-full shadow-inner">
+  const basePrice = window.cleanNumber(product?.price || product?.retailPrice || 0);
+  return `<div class="flex items-center justify-between bg-emerald-50/60 p-2 sm:p-3 rounded-xl border border-emerald-100 w-full shadow-inner">
               <span class="text-[9px] font-black text-[#1B4332] opacity-60">السعر:</span>
-              <p class="font-black text-[#1B4332] text-base sm:text-xl tracking-tighter">${Number(finalDisplayPrice).toFixed(2)} <span class="currency-shic text-[9px]">EGP</span></p>
-            </div>`;
-  }
-
-  return `<div class="price-block flex flex-wrap gap-2 mt-2" data-product-id="${product.id}">${html}</div>`;
+              <p class="font-black text-[#1B4332] text-base sm:text-xl tracking-tighter">${Number(basePrice).toFixed(2)} <span class="currency-shic text-[9px]">EGP</span></p>
+          </div>`;
 };
 
 window.updateProductUnitSelection = function(productId, unitKey, price, event) {
@@ -129,6 +76,7 @@ window.getPricingFieldsHTML = function (product) {
   const pPrices = product?.prices || {};
   const prices = {
     bag: pPrices.bag || '',
+    piece: pPrices.piece || product?.price || '',
     box: pPrices.box || '',
     carton: pPrices.carton || '',
     shrink: pPrices.shrink || '',
@@ -168,34 +116,13 @@ window.getPricingFieldsHTML = function (product) {
     </div>
 
     <div class="bg-slate-50 p-4 rounded-[2rem] border border-slate-100 mb-3">
-      <p class="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-wider">أسعار الوحدات (EGP)</p>
-      <div class="grid grid-cols-2 gap-3">
-        ${[
-          { id: 'bag', label: 'كيس & شنطة', icon: 'package' },
-          { id: 'box', label: 'علبة', icon: 'archive' },
-          { id: 'carton', label: 'كرتونة', icon: 'layers' },
-          { id: 'shrink', label: 'شرنك', icon: 'grid' },
-          { id: 'bundle', label: 'رابطة (Bundle)', icon: 'grip-vertical' },
-          { id: 'bucket', label: 'جردل', icon: 'shopping-basket' },
-          { id: 'tin', label: 'صفيحة', icon: 'box' }
-        ].map(u => `
-          <div>
-            <label class="text-[10px] font-bold text-slate-500 mb-1 block">${u.label}</label>
-            <div class="relative">
-              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300">
-                <i data-lucide="${u.icon}" class="w-3.5 h-3.5"></i>
-              </span>
-              <input type="number" id="p-price-${u.id}" value="${prices[u.id]}" placeholder="0.00" step="0.01" 
-                     class="w-full p-2.5 pr-8 bg-white rounded-xl border border-slate-200 outline-none focus:border-emerald-500 text-xs font-bold" dir="ltr" />
-            </div>
-          </div>
-        `).join('')}
+      <label class="text-[11px] font-bold text-slate-500 mb-1.5 block">السعر الأساسي للمنتج (EGP)</label>
+      <div class="relative">
+        <input type="number" id="p-price-bag" value="${prices.bag || prices.piece || ''}" placeholder="0.00" step="0.01" 
+               class="w-full p-4 bg-white rounded-2xl border-none outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg" dir="ltr" />
       </div>
     </div>
-    
-    <p class="text-[10px] text-slate-400 -mt-1">
-      💡 أدخل السعر أمام الوحدة التي تود تفعيلها لهذا المنتج فقط.
-    </p>`;
+    `;
 };
 
 /* ============================================================
@@ -204,6 +131,7 @@ window.getPricingFieldsHTML = function (product) {
 window.getPricingValues = function () {
   const prices = {
     bag: Number(document.getElementById('p-price-bag')?.value || 0),
+    piece: Number(document.getElementById('p-price-piece')?.value || 0),
     box: Number(document.getElementById('p-price-box')?.value || 0),
     carton: Number(document.getElementById('p-price-carton')?.value || 0),
     shrink: Number(document.getElementById('p-price-shrink')?.value || 0),
@@ -224,7 +152,7 @@ window.getPricingValues = function () {
     price: mainPrice, 
     prices,
     availableUnits: {
-      bag: !!prices.bag, box: !!prices.box, 
+      bag: !!prices.bag, piece: !!prices.piece, box: !!prices.box, 
       carton: !!prices.carton, shrink: !!prices.shrink, bundle: !!prices.bundle,
       bucket: !!prices.bucket, tin: !!prices.tin
     },
